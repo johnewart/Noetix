@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <RootNamespace>Noetix</RootNamespace>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="NJsonSchema" Version="11.1.0" />
+      <PackageReference Include="NLog" Version="5.3.4" />
+      <PackageReference Include="ServiceStack" Version="8.5.2" />
+    </ItemGroup>
+
+</Project>

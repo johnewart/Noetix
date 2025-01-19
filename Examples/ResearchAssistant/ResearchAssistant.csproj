@@ -1,0 +1,27 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net9.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <OutputType>Exe</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\Noetix.Knowledge.SharpVector\Noetix.Knowledge.SharpVector.csproj" />
+      <ProjectReference Include="..\..\Noetix.Providers.Anthropic\Noetix.Providers.Anthropic.csproj" />
+      <ProjectReference Include="..\..\Noetix.Providers.Ollama\Noetix.Providers.Ollama.csproj" />
+      <ProjectReference Include="..\..\Noetix\Noetix.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <None Update="nlog.config">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="HtmlAgilityPack" Version="1.11.72" />
+    </ItemGroup>
+
+</Project>

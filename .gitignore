@@ -1,0 +1,7 @@
+bin/
+obj/
+/packages/
+riderModule.iml
+.DS_store
+tags.lock
+.idea
