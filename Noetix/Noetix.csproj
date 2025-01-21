@@ -12,5 +12,4 @@
       <PackageReference Include="NLog" Version="5.3.4" />
       <PackageReference Include="ServiceStack" Version="8.5.2" />
     </ItemGroup>
-
 </Project>

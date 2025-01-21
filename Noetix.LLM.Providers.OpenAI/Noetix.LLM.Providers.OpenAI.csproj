@@ -4,16 +4,15 @@
         <TargetFramework>net9.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <RootNamespace>Noetix.Anthropic</RootNamespace>
+        <RootNamespace>Noetix.LLM.Providers.OpenAI</RootNamespace>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="NJsonSchema" Version="11.1.0" />
+      <ProjectReference Include="..\Noetix\Noetix.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Noetix.Codecs\Noetix.Codecs.fsproj" />
-      <ProjectReference Include="..\Noetix\Noetix.csproj" />
+      <PackageReference Include="OpenAI" Version="2.1.0" />
     </ItemGroup>
 
 </Project>

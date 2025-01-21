@@ -7,7 +7,7 @@ using Noetix.LLM.Common;
 using Noetix.LLM.Requests;
 using Noetix.LLM.Tools;
 
-namespace Noetix.Anthropic;
+namespace Noetix.LLM.Providers.Anthropic;
 
 public class AnthropicLLM : LLMProvider
 {

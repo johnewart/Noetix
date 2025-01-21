@@ -4,7 +4,7 @@ using OpenAI;
 using OpenAI.Chat;
 using OpenAI.Models;
 
-namespace Noetix.OpenAI;
+namespace Noetix.LLM.Providers.OpenAI;
 
 public class OpenAILLM : LLMProvider
 {

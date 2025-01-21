@@ -4,7 +4,7 @@ using Noetix.Knowledge;
 using Noetix.Knowledge.SharpVector;
 using Noetix.Knowledge.Storage;
 using Noetix.Knowledge.Tools;
-using Noetix.Anthropic;
+using Noetix.LLM.Providers.Anthropic;
 using Noetix.LLM.Common;
 
 namespace ResearchAssistant;

@@ -5,7 +5,7 @@ using Noetix.LLM.Tools;
 using Noetix.Ollama.Ollama;
 using ServiceStack;
 
-namespace Noetix.Ollama;
+namespace Noetix.LLM.Providers.Ollama;
 
 public class OllamaConfig(string? baseUrl = null)
 {

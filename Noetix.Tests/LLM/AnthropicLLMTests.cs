@@ -1,7 +1,7 @@
 using System.Net;
 using Codecs;
 using Newtonsoft.Json.Linq;
-using Noetix.Anthropic;
+using Noetix.LLM.Providers.Anthropic;
 using Noetix.LLM.Common;
 using Noetix.LLM.Requests;
 using Xunit;

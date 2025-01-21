@@ -2,11 +2,9 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Noetix", "Noetix\Noetix.csproj", "{766D2CFF-41D2-49F1-B9AF-973976DA5081}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Noetix.Providers.Ollama", "Noetix.Providers.Ollama\Noetix.Providers.Ollama.csproj", "{2CE7551B-66D2-48D5-AF8B-445EE69E7806}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Noetix.LLM.Providers.Anthropic", "Noetix.LLM.Providers.Anthropic\Noetix.LLM.Providers.Anthropic.csproj", "{A0FED215-A73A-4145-AD4F-9751B178EF1C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Noetix.Providers.Anthropic", "Noetix.Providers.Anthropic\Noetix.Providers.Anthropic.csproj", "{A0FED215-A73A-4145-AD4F-9751B178EF1C}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Noetix.Providers.OpenAI", "Noetix.Providers.OpenAI\Noetix.Providers.OpenAI.csproj", "{BEC02452-4AE8-42AF-8699-5361BBFB1CC1}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Noetix.LLM.Providers.OpenAI", "Noetix.LLM.Providers.OpenAI\Noetix.LLM.Providers.OpenAI.csproj", "{BEC02452-4AE8-42AF-8699-5361BBFB1CC1}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Noetix.Tests", "Noetix.Tests\Noetix.Tests.csproj", "{6DA7C0C2-7E48-4AA2-8A1B-BC0370B50721}"
 EndProject
@@ -22,6 +20,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Examples", "Examples", "{F4
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ResearchAssistant", "Examples\ResearchAssistant\ResearchAssistant.csproj", "{A9580C3E-90EA-44E2-9CC2-5BBBBCA9CDC5}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Noetix.LLM.Providers.Ollama", "Noetix.LLM.Providers.Ollama\Noetix.LLM.Providers.Ollama.csproj", "{842E5918-E7B8-45F0-81AE-60F6927791C5}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -32,10 +32,6 @@ Global
 		{766D2CFF-41D2-49F1-B9AF-973976DA5081}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{766D2CFF-41D2-49F1-B9AF-973976DA5081}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{766D2CFF-41D2-49F1-B9AF-973976DA5081}.Release|Any CPU.Build.0 = Release|Any CPU
-		{2CE7551B-66D2-48D5-AF8B-445EE69E7806}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{2CE7551B-66D2-48D5-AF8B-445EE69E7806}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{2CE7551B-66D2-48D5-AF8B-445EE69E7806}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{2CE7551B-66D2-48D5-AF8B-445EE69E7806}.Release|Any CPU.Build.0 = Release|Any CPU
 		{A0FED215-A73A-4145-AD4F-9751B178EF1C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{A0FED215-A73A-4145-AD4F-9751B178EF1C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A0FED215-A73A-4145-AD4F-9751B178EF1C}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -60,12 +56,16 @@ Global
 		{A9580C3E-90EA-44E2-9CC2-5BBBBCA9CDC5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A9580C3E-90EA-44E2-9CC2-5BBBBCA9CDC5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A9580C3E-90EA-44E2-9CC2-5BBBBCA9CDC5}.Release|Any CPU.Build.0 = Release|Any CPU
+		{842E5918-E7B8-45F0-81AE-60F6927791C5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{842E5918-E7B8-45F0-81AE-60F6927791C5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{842E5918-E7B8-45F0-81AE-60F6927791C5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{842E5918-E7B8-45F0-81AE-60F6927791C5}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{A0FED215-A73A-4145-AD4F-9751B178EF1C} = {713FA794-7964-48D5-918D-58484C3CAAE9}
-		{2CE7551B-66D2-48D5-AF8B-445EE69E7806} = {713FA794-7964-48D5-918D-58484C3CAAE9}
 		{BEC02452-4AE8-42AF-8699-5361BBFB1CC1} = {713FA794-7964-48D5-918D-58484C3CAAE9}
 		{7096DA31-36E8-43A0-9E8E-69B253C22C02} = {0C57AFC7-4825-43EB-988B-6A139DA001E6}
 		{A9580C3E-90EA-44E2-9CC2-5BBBBCA9CDC5} = {F473668D-E268-4532-B2C2-125F912448D7}
+		{842E5918-E7B8-45F0-81AE-60F6927791C5} = {713FA794-7964-48D5-918D-58484C3CAAE9}
 	EndGlobalSection
 EndGlobal

@@ -1,6 +1,5 @@
 ﻿namespace Codecs
 
-open System.Text.Json.Nodes
 open Newtonsoft.Json.Linq
 open Thoth.Json.Net
 
@@ -133,28 +132,8 @@ module ToolResultBlock =
         ]
             
 module ContentBlock =
-    
-    // let customDecoders =
-    //     Map [
-    //         "text", TextContentBlock.decoder
-    //         "tool_use", ToolUseBlock.decoder
-    //     ]
-        
     let decode = DecodeBuilder()
-
-    // let decodeByType =
-    //     decode {
-    //         let! blockType = Decode.field "type" Decode.string
-    //         let! decoder =
-    //             match customDecoders.TryFind blockType with
-    //             | Some decoder ->
-    //                 decode.Return decoder
-    //             | None ->
-    //                 decode.Return UnknownBlock.decoder
-    //                 
-    //         return! decoder
-    //     }
-        
+    
     let decoder =
         Decode.field "type" Decode.string
         |> Decode.andThen

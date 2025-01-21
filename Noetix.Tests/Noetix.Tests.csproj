@@ -21,11 +21,11 @@
     </ItemGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Noetix.Providers.Anthropic\Noetix.Providers.Anthropic.csproj" />
+      <ProjectReference Include="..\Noetix.LLM.Providers.Anthropic\Noetix.LLM.Providers.Anthropic.csproj" />
       <ProjectReference Include="..\Noetix.Codecs\Noetix.Codecs.fsproj" />
       <ProjectReference Include="..\Noetix.Knowledge.SharpVector\Noetix.Knowledge.SharpVector.csproj" />
       <ProjectReference Include="..\Noetix.Providers.Ollama\Noetix.Providers.Ollama.csproj" />
-      <ProjectReference Include="..\Noetix.Providers.OpenAI\Noetix.Providers.OpenAI.csproj" />
+      <ProjectReference Include="..\Noetix.LLM.Providers.OpenAI\Noetix.LLM.Providers.OpenAI.csproj" />
       <ProjectReference Include="..\Noetix\Noetix.csproj" />
     </ItemGroup>
 

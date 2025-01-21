@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+    <PropertyGroup>
+        <Authors>John Ewart</Authors>
+        <Description>A .NET library for creating AI assistants and agents</Description>
+        <Copyright>Copyright © John Ewart $([System.DateTime]::Now.Year)</Copyright>
+        <PackageTags>ai</PackageTags>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <Version>1.0.1</Version>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath=""/>
+    </ItemGroup>
+</Project>
