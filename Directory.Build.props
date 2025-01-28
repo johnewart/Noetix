@@ -6,7 +6,7 @@
         <Copyright>Copyright © John Ewart $([System.DateTime]::Now.Year)</Copyright>
         <PackageTags>ai</PackageTags>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <Version>1.0.1</Version>
+        <Version>1.0.2</Version>
     </PropertyGroup>
 
     <ItemGroup>

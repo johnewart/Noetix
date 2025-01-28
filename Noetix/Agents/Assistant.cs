@@ -89,7 +89,7 @@ public class Assistant(
             onMessageCallback?.Invoke(message);
         });
 
-        var llmOptions = defaultGenerationOptions?.OverrideWith(options);
+        var llmOptions = defaultGenerationOptions?.OverrideWith(options) ?? options;
             
         var toolDefinitions = LLM.SupportsToolsNatively ?
             _tools.Select(t => new ToolDefinition
@@ -127,7 +127,7 @@ public class Assistant(
 
         var toolProcessor = new ToolProcessor(_tools ?? new List<AssistantTool>());
 
-        var llmOptions = defaultGenerationOptions.OverrideWith(options);
+        var llmOptions = defaultGenerationOptions?.OverrideWith(options);
             
         var conversation = new Conversation(
             assistant: this,
