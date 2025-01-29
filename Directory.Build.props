@@ -6,11 +6,14 @@
         <Copyright>Copyright © John Ewart $([System.DateTime]::Now.Year)</Copyright>
         <PackageTags>ai</PackageTags>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <Version>1.0.3</Version>
+        <Version>1.0.4</Version>
         <RepositoryUrl>https://github.com/johnewart/Noetix</RepositoryUrl>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
     </PropertyGroup>
 
     <ItemGroup>
         <None Include="$(MSBuildThisFileDirectory)LICENSE" Pack="true" PackagePath=""/>
+        <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath=""/>
+
     </ItemGroup>
 </Project>
