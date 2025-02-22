@@ -27,12 +27,16 @@ public class SharpVector : IDocumentSearchEngine
         });
     }
     
-    public async Task IndexAll(IEnumerable<Document> documents)
+    public async Task<int> IndexAll(IEnumerable<Document> documents)
     {
+        int count = 0;
         foreach (var document in documents)
         {
+            count++;
             await Index(document);              
         }
+        
+        return count;
     }
 
     public async Task<IEnumerable<RankedResult>> RankedSearch(string query, int limit, float? threshold = null)
