@@ -21,7 +21,7 @@ public class AnthropicLLM : LLMProvider
         initialDelay: TimeSpan.FromSeconds(3),
         maxDelay: TimeSpan.FromSeconds(30),
         backoffStrategy: RetryPolicy.BackoffStrategy.Exponential,
-        shouldRetry: ex => ex is Exception
+        shouldRetry: ex => (ex is Exception && ex.Message.Contains("429") || ex.Message.Contains("500")) 
     );
 
     public AnthropicLLM(AnthropicConfig config, HttpClient? httpClient = null)
@@ -139,7 +139,7 @@ public class AnthropicLLM : LLMProvider
                 }
             }
 
-            throw new ApiError($"API request failed with status {response.StatusCode}");
+            throw new ApiError($"API request failed with status {response.StatusCode} ({(int)response.StatusCode}");
         });
     }
 
