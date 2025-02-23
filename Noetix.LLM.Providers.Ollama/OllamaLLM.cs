@@ -73,14 +73,18 @@ public class OllamaLLM(OllamaConfig config) : LLMProvider
     }
 
     public async Task<bool> StreamComplete(CompletionRequest request,
-        IStreamingResponseHandler handler)
+        IStreamingResponseHandler handler, CancellationToken cancellationToken)
     {
+        var messages = new List<ChatMessage>() { ConvertMessage(new SystemMessage(request.SystemPrompt)) };
+        messages.AddRange(request.Messages.Select(ConvertMessage));
+        
         await _client.StreamChat(
             request.Model,
-            request.Messages.Select(ConvertMessage).ToList(),
+            messages,
             handler.OnToken,
             handler.OnComplete,
-            error => throw new Exception(error)
+            error => throw new Exception(error),
+            cancellationToken: cancellationToken
         );
         return true;
     }

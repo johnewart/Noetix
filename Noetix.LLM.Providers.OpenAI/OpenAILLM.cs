@@ -58,7 +58,7 @@ public class OpenAILLM : LLMProvider
         return new CompletionResponse(model: request.Model, textBlocks: textBlocks);
     }
 
-    public async Task<bool> StreamComplete(CompletionRequest request, IStreamingResponseHandler handler)
+    public async Task<bool> StreamComplete(CompletionRequest request, IStreamingResponseHandler handler, CancellationToken cancellationToken)
     {
         throw new NotImplementedException();
     }

@@ -143,7 +143,7 @@ public class AnthropicLLM : LLMProvider
         });
     }
 
-    public async Task<bool> StreamComplete(CompletionRequest request, IStreamingResponseHandler handler)
+    public async Task<bool> StreamComplete(CompletionRequest request, IStreamingResponseHandler handler, CancellationToken cancellationToken)
     {
         var anthropicMessages = request.Messages.Select(m => convertMessage(m)).ToList();
         // var request = new AnthropicRequest { Model = options.Model, Messages = anthropicMessages, MaxTokens = 1024, Tools = null };

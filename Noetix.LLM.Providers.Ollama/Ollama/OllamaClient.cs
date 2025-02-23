@@ -98,7 +98,7 @@ public class ChatRequest
     [JsonProperty(PropertyName = "messages")]
     public required List<ChatMessage> Messages { get; set; }
     [JsonProperty(PropertyName = "stream")]
-    public bool Stream { get; set; } = true;
+    public bool Stream { get; set; } = false;
     [JsonProperty(PropertyName = "tools")]
     public List<OllamaTool>? Tools { get; set; }
 }
@@ -177,42 +177,64 @@ public class OllamaClient
         List<ChatMessage> messages,
         Action<string> onMessage,
         Action? onComplete = null,
-        Action<string>? onError = null)
+        Action<string>? onError = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
-            var requestBody = JsonConvert.SerializeObject(new ChatRequest { Model = model, Messages = messages });
-            var response = await _httpClient.PostAsync(
-                $"{_baseUrl}/api/chat",
-                new StringContent(requestBody, Encoding.UTF8, "application/json"));
+            var message = new HttpRequestMessage(HttpMethod.Post, $"{_baseUrl}/api/chat");
+            var chatRequest = new ChatRequest { Model = model, Messages = messages, Stream = true };
+            var requestBody = JsonConvert.SerializeObject(chatRequest);
 
-            var responseStream = await response.Content.ReadAsStreamAsync();
-            using var reader = new StreamReader(responseStream);
-            string? line;
+            message.Content = new StringContent(requestBody, Encoding.UTF8, "application/json");
+            var response = await _httpClient.SendAsync(message, HttpCompletionOption.ResponseHeadersRead);
+            var stream = await response.Content.ReadAsStreamAsync();
 
-            while ((line = await reader.ReadLineAsync()) != null)
+            string read = "";
+            byte[] buffer = new byte[1024];
+
+            while (true)
             {
-                try
+                if (cancellationToken.IsCancellationRequested)
                 {
-                    var chatResponse = JsonConvert.DeserializeObject<ChatResponse>(line);
-
-                    if (chatResponse == null)
-                    {
-                        onError?.Invoke("Error parsing response");
-                        return;
-                    }
-
-                    onMessage(chatResponse.Message.Content);
-
-                    if (chatResponse.Done)
-                    {
-                        onComplete?.Invoke();
-                        return;
-                    }
+                    stream.Close();
+                    response.Dispose();
+                    break;
                 }
-                catch (Exception e)
+
+                var count = await stream.ReadAsync(buffer, 0, buffer.Length);
+                if (count == 0)
                 {
-                    onError?.Invoke($"Error parsing response: {e.Message}");
+                    break;
+                }
+
+                read += Encoding.UTF8.GetString(buffer, 0, count);
+                var lines = read.Split("\n");
+                read = lines.Last();
+                foreach (var line in lines.Take(lines.Length - 1))
+                {
+                    try
+                    {
+                        var chatResponse = JsonConvert.DeserializeObject<ChatResponse>(line);
+
+                        if (chatResponse == null)
+                        {
+                            onError?.Invoke("Error parsing response");
+                            return;
+                        }
+
+                        onMessage(chatResponse.Message.Content);
+
+                        if (chatResponse.Done)
+                        {
+                            onComplete?.Invoke();
+                            return;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        onError?.Invoke($"Error parsing response: {e.Message}");
+                    }
                 }
             }
         }
@@ -220,6 +242,40 @@ public class OllamaClient
         {
             onError?.Invoke($"Stream error: {e.Message}");
         }
+        //     }    
+        //     using var reader = new StreamReader(responseStream);
+        //     string? line;
+        //
+        //     while ((line = await reader.ReadLineAsync()) != null)
+        //     {
+        //         try
+        //         {
+        //             var chatResponse = JsonConvert.DeserializeObject<ChatResponse>(line);
+        //
+        //             if (chatResponse == null)
+        //             {
+        //                 onError?.Invoke("Error parsing response");
+        //                 return;
+        //             }
+        //
+        //             onMessage(chatResponse.Message.Content);
+        //
+        //             if (chatResponse.Done)
+        //             {
+        //                 onComplete?.Invoke();
+        //                 return;
+        //             }
+        //         }
+        //         catch (Exception e)
+        //         {
+        //             onError?.Invoke($"Error parsing response: {e.Message}");
+        //         }
+        //     }
+        // }
+        // catch (Exception e)
+        // {
+        //     onError?.Invoke($"Stream error: {e.Message}");
+        // }
     }
 
         

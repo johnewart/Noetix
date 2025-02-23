@@ -3,6 +3,7 @@ using System.Text;
 using Noetix.Agents.Status;
 using Noetix.Agents.Tools;
 using Noetix.LLM.Common;
+using Noetix.LLM.Requests;
 
 namespace Noetix.Agents;
 
@@ -63,13 +64,44 @@ public class Assistant(
         return chatHistoryStore?.History(chatSessionId, maxLength) ?? [];
     }
 
-    public AssistantMessage Stream(
+    public async Task<AssistantMessage> Stream(
         string chatSessionId,
         UserMessage prompt,
         Action<string> streamHandler,
+        CancellationToken cancellationToken = default,
         GenerationOptions? options = null)
     {
-        return new("streaming not implemented");
+        var responseText = "";
+        var wrapper = new Action<string>(token =>
+        {
+            responseText += token;
+            streamHandler(token);
+        });
+        
+        var handler = new StreamHandler(wrapper);
+        var llmOptions = defaultGenerationOptions?.OverrideWith(options) ?? options;
+        var messages = chatHistoryStore?.History(chatSessionId: chatSessionId) ?? new List<Message>();
+        messages.Add(prompt);
+        
+        chatHistoryStore?.Store(chatSessionId, prompt);
+        
+        var completionRequest = new CompletionRequest
+        {
+            SystemPrompt = this.SystemPrompt().Content,
+            Model = model,
+            Options = llmOptions,
+            Messages = messages,
+        };
+            
+        await LLM.StreamComplete(completionRequest, handler, cancellationToken);
+        
+        var response = new AssistantMessage(responseText);
+        if (!cancellationToken.IsCancellationRequested)
+        {
+            chatHistoryStore?.Store(chatSessionId, response);
+        }
+
+        return response;
     }
 
     public async Task<AssistantMessage> Chat(
@@ -191,5 +223,31 @@ public class Assistant(
         var inputBytes = Encoding.ASCII.GetBytes(s);
         var hashBytes = md5.ComputeHash(inputBytes);
         return string.Concat(hashBytes.Select(b => b.ToString("x2")));
+    }
+    
+    private class StreamHandler : IStreamingResponseHandler
+    {
+        private string _responseText = "";
+        private readonly Action<string> _streamHandler;
+        private readonly Action<AssistantMessage>? _onComplete;
+        public StreamHandler(Action<string> streamHandler, Action<AssistantMessage>? onComplete = null)
+        {
+            _streamHandler = streamHandler;
+            _onComplete = onComplete; 
+        }
+        
+        public void OnToken(string token)
+        {
+            _responseText += token;
+            _streamHandler(token);
+        }
+
+        public void OnComplete()
+        {
+            var message = new AssistantMessage(_responseText);
+            _onComplete?.Invoke(message);
+        }
+
+        public void OnError(Exception error) => _streamHandler(error.Message);
     }
 }

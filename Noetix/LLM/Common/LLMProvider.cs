@@ -10,7 +10,8 @@ public interface LLMProvider
 
     Task<bool> StreamComplete(
         CompletionRequest request,
-        IStreamingResponseHandler handler);
+        IStreamingResponseHandler handler,
+        CancellationToken cancellationToken);
 
     Task<CompletionResponse> Generate(
         CompletionRequest request);
