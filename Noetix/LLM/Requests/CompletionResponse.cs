@@ -14,6 +14,6 @@ public class CompletionResponse(
     public string Content { get; init; } = String.Join(" ", textBlocks);
     public string Model { get; init; } = model;
     public TokenUsage? Usage { get; init; } = usage;
-    public List<ToolInvocationRequest>? ToolInvocations { get; init; } = new List<ToolInvocationRequest>(toolRequests);
+    public List<ToolInvocationRequest>? ToolInvocations { get; init; } = toolRequests != null ?  new List<ToolInvocationRequest>(toolRequests) : null;
     public string[] TextBlocks { get; init; } = textBlocks;
 }

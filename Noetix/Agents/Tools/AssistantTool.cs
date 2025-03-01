@@ -44,9 +44,19 @@ public abstract class AssistantTool
                 Result = default(O)
             });
         }
-            
-            
-        return JsonConvert.SerializeObject(await wrapper(typedInput));
+
+        try
+        {
+            var toolResult = await wrapper(typedInput);
+            return JsonConvert.SerializeObject(toolResult);
+        } 
+        catch (Exception e)
+        {
+            return JsonConvert.SerializeObject(new ToolResult<O>
+            {
+                Success = false, Error = e.Message, Result = default(O)
+            });
+        }
     }
 
     protected void UpdateStatus(ToolState state, string message, Dictionary<string, object> data)

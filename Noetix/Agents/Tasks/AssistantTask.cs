@@ -1,5 +1,6 @@
 using System.Reflection;
 using System.Text;
+using Newtonsoft.Json;
 using Noetix.LLM.Common;
 
 namespace Noetix.Agents.Tasks;
@@ -50,11 +51,13 @@ public abstract class AssistantTask<I, O> : IAssistantTask where I : TaskParams
         var sb = new StringBuilder();
         foreach (var kvp in context)
         {
-            if (kvp.Value is string strValue && !string.IsNullOrEmpty(strValue))
+            var value = kvp.Value;
+          
+            if (value is string strValue && !string.IsNullOrEmpty(strValue))
             {
                 sb.AppendLine($"<{kvp.Key}>{strValue}</{kvp.Key}>");
             }
-            else if (kvp.Value is Array arrayValue)
+            else if (value is Array arrayValue)
             {
                 sb.AppendLine($"<{kvp.Key}>");
                 foreach (var item in arrayValue)
@@ -70,7 +73,7 @@ public abstract class AssistantTask<I, O> : IAssistantTask where I : TaskParams
                 }
                 sb.AppendLine($"</{kvp.Key}>");
             }
-            else if (kvp.Value is Dictionary<string, object> contextValue)
+            else if (value is Dictionary<string, object> contextValue)
             {
                 sb.AppendLine($"<{kvp.Key}>{ContextToXMLLikeDoc(contextValue)}</{kvp.Key}>");
             }
@@ -102,7 +105,7 @@ public abstract class AssistantTask<I, O> : IAssistantTask where I : TaskParams
     {
         return $@"
 <context>
-{ContextToXMLLikeDoc(p.Context.GetContextDictionary())}
+{JsonConvert.SerializeObject(p.Context.GetContextDictionary())}
 </context>
 
 <task_instructions>

@@ -3,13 +3,14 @@ using Noetix.LLM.Requests;
 using OpenAI;
 using OpenAI.Chat;
 using OpenAI.Models;
+using ServiceStack;
 
 namespace Noetix.LLM.Providers.OpenAI;
 
 public class OpenAILLM : LLMProvider
 {
 
-    public record OpenAIConfig
+    public class OpenAIConfig
     {
         public string ApiKey { get; set; }
         public string BaseUrl { get; set; }
@@ -22,7 +23,8 @@ public class OpenAILLM : LLMProvider
     public OpenAILLM(OpenAIConfig config)
     {
         this.config = config;
-        var credentials = new System.ClientModel.ApiKeyCredential(config.ApiKey);
+        var apiKey = config.ApiKey.IsNullOrEmpty() ? "dummykey" : config.ApiKey;
+        var credentials = new System.ClientModel.ApiKeyCredential(apiKey);
         var options = new OpenAIClientOptions { Endpoint = new Uri(config.BaseUrl) };
         this.client = new OpenAIClient(credentials, options);
         this.modelClient = new OpenAIModelClient(credentials, options);
@@ -44,9 +46,12 @@ public class OpenAILLM : LLMProvider
 
     public async Task<CompletionResponse> Complete(CompletionRequest request)
     {
-
+        var messages = new List<ChatMessage>(){ new SystemChatMessage(request.SystemPrompt) };
+        messages.AddRange(request.Messages.Select(ConvertMessage).ToList());
+        
+        
         var chat = client.GetChatClient(request.Model);
-        var response = chat.CompleteChat(messages: request.Messages.Select(ConvertMessage)).Value;
+        var response = (await chat.CompleteChatAsync(messages: messages)).Value;
 
         if (response.Content == null)
         {
@@ -54,13 +59,29 @@ public class OpenAILLM : LLMProvider
         }
 
         var textBlocks = response.Content.Select(c => c.Text).ToArray();
+        var result = new CompletionResponse(model: request.Model, textBlocks: textBlocks);
         
-        return new CompletionResponse(model: request.Model, textBlocks: textBlocks);
+        return result;
     }
 
     public async Task<bool> StreamComplete(CompletionRequest request, IStreamingResponseHandler handler, CancellationToken cancellationToken)
     {
-        throw new NotImplementedException();
+        var messages = new List<ChatMessage>(){ new SystemChatMessage(request.SystemPrompt) };
+        messages.AddRange(request.Messages.Select(ConvertMessage).ToList());
+        
+        var chat = client.GetChatClient(request.Model);
+        var response = chat.CompleteChatStreamingAsync(messages: messages, cancellationToken: cancellationToken);
+        
+        await foreach (var message in response)
+        {
+            if (message.ContentUpdate != null)
+            {
+                var textBlocks = message.ContentUpdate.Select(c => c.Text).ToArray();
+                handler.OnToken(textBlocks.Join(" "));
+            }
+        }
+
+        return true;
     }
 
     public async Task<CompletionResponse> Generate(CompletionRequest request)

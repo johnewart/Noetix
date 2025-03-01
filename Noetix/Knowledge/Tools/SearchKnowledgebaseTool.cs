@@ -41,22 +41,22 @@ public class SearchKnowledgebaseTool(Knowledgebase knowledgeBase) : AssistantToo
         int limit = input.Limit ?? 10;
         string id = Guid.NewGuid().ToString();
         UpdateStatus(
-            ToolState.Running, $"Searching knowledgebase for up to {limit} documents about '{query}'", new Dictionary<string, object>()
+            ToolState.Running, $"Searching knowledgebase for up to {limit} documents about '{query}'",
+            new Dictionary<string, object>()
         );
-            
-        var searchResult = await knowledgeBase.Search(query, limit).ContinueWith((Task<IEnumerable<Document>> task) =>
-        {
-            var docs = task.Result.ToList();
-            UpdateStatus(
-                ToolState.Completed, $"Found {docs.Count} documents for the query '{query}'", new Dictionary<string, object>()
-            );
-            return new SearchKnowledgebaseOutput(docs);
-        });
 
-        
+        var docs = (await knowledgeBase.Search(query, limit)).ToList();
+        UpdateStatus(
+            ToolState.Completed, $"Found {docs.Count} documents for the query '{query}'",
+            new Dictionary<string, object>()
+        );
+        var searchResult = new SearchKnowledgebaseOutput(docs);
+
+
         return new()
         {
-            Message = $"Knowledgebase search for '{query}' successful - yielded {searchResult.Documents.Count} results.",
+            Message =
+                $"Knowledgebase search for '{query}' successful - yielded {searchResult.Documents.Count} results.",
             Result = searchResult
         };
     }

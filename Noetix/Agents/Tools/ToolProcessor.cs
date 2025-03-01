@@ -20,8 +20,9 @@ public class ToolProcessor(IEnumerable<AssistantTool> tools)
         public string Tool { get; set; }
         public ToolResults Result { get; set; }
     }
-
-    public ToolResponse[] Process(string content, IEnumerable<ToolInvocationRequest> toolRequests, Action<ToolStatusUpdate>? onToolStatusUpdate = null)
+    
+    
+    public async Task<ToolResponse[]> Process(string content, List<ToolInvocationRequest> toolRequests, Action<ToolStatusUpdate>? onToolStatusUpdate = null)
     {
         if (!toolRequests.Any())
         {
@@ -37,7 +38,7 @@ public class ToolProcessor(IEnumerable<AssistantTool> tools)
             ];
         }
 
-        var toolResults = toolRequests.Select<ToolInvocationRequest, ToolResponse>((request) =>
+        var toolResults = toolRequests.Select<ToolInvocationRequest, Task<ToolResponse>>(async (request) =>
             {
                 var tool = tools.FirstOrDefault(t => t.Id == request.Tool);
                 if (tool != null)
@@ -51,7 +52,7 @@ public class ToolProcessor(IEnumerable<AssistantTool> tools)
 
                     try
                     {
-                        var results = tool.Invoke(request.Id, request.Parameters).Result;
+                        var results = await tool.Invoke(request.Id, request.Parameters);
 
                         if (results.Success)
                         {
@@ -110,7 +111,7 @@ public class ToolProcessor(IEnumerable<AssistantTool> tools)
             }
         );
             
-        return toolResults.ToArray();
+        return await Task.WhenAll(toolResults);
     }
 
     private IEnumerable<string> ExtractToolHelpRequests(string input)

@@ -86,7 +86,7 @@ public class Conversation
         };
 
         var response = await _llm.Complete(request);
-
+        logger.Info($"Received response from LLM: {response.Content}");
         try
         {
             var messageContent = response.Content;
@@ -99,7 +99,7 @@ public class Conversation
             if (response.ToolInvocations is { Count: > 0 } && _toolProcessor != null)
             {
                 _assistant.UpdateStatus(AssistantStatusKind.Tool, AssistantStatusState.Started, "Processing tool requests", $"Processing {response.ToolInvocations.Count} tool requests...");
-                var responses = _toolProcessor.Process(messageContent, response.ToolInvocations);
+                var responses = await _toolProcessor.Process(messageContent, response.ToolInvocations);
                 var results = responses.Select(r => r.Result).ToList();
                 // var resultsJson = JsonConvert.SerializeObject(results);
                 _assistant.UpdateStatus(AssistantStatusKind.Tool, AssistantStatusState.Completed, "Tool requests processed", $"Processed {response.ToolInvocations.Count} tool requests.");
@@ -121,7 +121,7 @@ public class Conversation
             _assistant.UpdateStatus(AssistantStatusKind.Status, AssistantStatusState.Working, "Processing triggers", $"Responding to {triggers.Count()} triggers...");
                 
             // Otherwise, process the triggers
-            var userResponse = GenerateResponse(messageContent, triggers);
+            var userResponse = await GenerateResponse(messageContent, triggers);
             logger.Info($"Generated response: {userResponse.Content}");
             return await Send(userResponse);
 
@@ -132,7 +132,7 @@ public class Conversation
         }
     }
 
-    private UserMessage GenerateResponse(string content, IEnumerable<ResponseReason> triggers)
+    private async Task<UserMessage> GenerateResponse(string content, List<ResponseReason> triggers)
     {
         var result = "";
 
@@ -150,7 +150,7 @@ public class Conversation
                     _assistant.UpdateStatus(AssistantStatusKind.Tool, AssistantStatusState.Started, "Extracting tool requests", $"Extracting tool requests...");
                     var toolRequests = _toolProcessor.ExtractToolsRequests(content).ToList();
                     _assistant.UpdateStatus(AssistantStatusKind.Tool, AssistantStatusState.Started, "Processing tool requests", $"Processing {toolRequests.Count()} tool requests...");
-                    var toolResults = _toolProcessor.Process(content, toolRequests, update => {
+                    var toolResults = await _toolProcessor.Process(content, toolRequests, update => {
                         _assistant.UpdateStatus(AssistantStatusKind.Tool, update.State switch
                             {
                                 ToolState.Running => AssistantStatusState.Working,
@@ -166,7 +166,7 @@ public class Conversation
                     result += toolResultContent;
                     break;
                 case ResponseReason.ToolHelpRequest:
-                    result += _toolProcessor.ProcessToolHelp(content);
+                    result += _toolProcessor?.ProcessToolHelp(content);
                     break;
             }
         }
