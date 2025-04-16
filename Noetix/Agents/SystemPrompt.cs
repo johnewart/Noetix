@@ -142,7 +142,8 @@ public class Template
 {{#if NeedsMemoryInstructions}}
 <memory_instructions>
     If you think something is noteworthy, I can store memories for you.
-    In any response, write down the memory inside a <memory></memory> tag.
+    To store a memory, include it in <memory></memory> tags.
+    For example: <memory>I remember that you like chocolate ice cream.</memory>
     I will store exactly what is between the tags.
     The memories you have will be returned in between <memories></memories> tags during the conversation.
     ALWAYS consider memories when you are coming up with your responses.

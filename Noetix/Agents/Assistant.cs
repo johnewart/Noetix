@@ -4,6 +4,7 @@ using Noetix.Agents.Status;
 using Noetix.Agents.Tools;
 using Noetix.LLM.Common;
 using Noetix.LLM.Requests;
+using Noetix.LLM.Tools;
 
 namespace Noetix.Agents;
 
@@ -108,7 +109,9 @@ public class Assistant(
         UserMessage prompt,
         GenerationOptions? options = null,
         string chatSessionId = "default",
-        Action<Message>? onMessageCallback = null
+        Action<Message>? onMessageCallback = null,
+        Action<string>? streamHandler = null,
+        CancellationToken cancellationToken = default
     )
     {
         UpdateStatus(AssistantStatusKind.Chat, AssistantStatusState.Started, "Generating response....", "Generating response....");
@@ -122,15 +125,6 @@ public class Assistant(
         });
 
         var llmOptions = defaultGenerationOptions?.OverrideWith(options) ?? options;
-            
-        var toolDefinitions = LLM.SupportsToolsNatively ?
-            _tools.Select(t => new ToolDefinition
-            {
-                Name = t.Id,
-                Description = t.Description,
-                ParametersSchema = t.Parameters.Schema
-            }).ToList() : new List<ToolDefinition>();
-
 
         var conversation = new Conversation(
             assistant: this,
@@ -139,14 +133,18 @@ public class Assistant(
             llm: LLM,
             toolProcessor: toolProcessor,
             memoryProcessor: memoryProcessor,
-            toolDefinitions: toolDefinitions,
+            toolDefinitions: ToolDefinitions,
             maxThreadDepth,
             History(chatSessionId),
             llmOptions,
-            onMessage); 
+            onMessage,
+            streamHandler: streamHandler, 
+            cancellationToken: cancellationToken); 
 
             
-        return await conversation.Send(prompt);
+        var result = await conversation.Send(prompt);
+        UpdateStatus(AssistantStatusKind.Chat, AssistantStatusState.Completed, "Completed", "Response generated");
+        return result;
     }
 
     public async Task<AssistantMessage> Generate(
@@ -225,15 +223,18 @@ public class Assistant(
         return string.Concat(hashBytes.Select(b => b.ToString("x2")));
     }
     
-    private class StreamHandler : IStreamingResponseHandler
+    public class StreamHandler : IStreamingResponseHandler
     {
         private string _responseText = "";
         private readonly Action<string> _streamHandler;
         private readonly Action<AssistantMessage>? _onComplete;
-        public StreamHandler(Action<string> streamHandler, Action<AssistantMessage>? onComplete = null)
+        private readonly Action<ToolInvocationRequest>? _onToolRequest;
+        
+        public StreamHandler(Action<string> streamHandler, Action<AssistantMessage>? onComplete = null, Action<ToolInvocationRequest >? onToolRequest = null)
         {
             _streamHandler = streamHandler;
-            _onComplete = onComplete; 
+            _onComplete = onComplete;
+            _onToolRequest = onToolRequest;
         }
         
         public void OnToken(string token)
@@ -242,6 +243,11 @@ public class Assistant(
             _streamHandler(token);
         }
 
+        public void OnToolRequest(ToolInvocationRequest toolRequest)
+        {
+            _onToolRequest?.Invoke(toolRequest);             
+        }
+        
         public void OnComplete()
         {
             var message = new AssistantMessage(_responseText);

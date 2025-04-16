@@ -1,4 +1,5 @@
 
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using Noetix.Common;
 using Newtonsoft.Json;
@@ -75,15 +76,15 @@ public abstract class AssistantTool
         var serializeOptions = new JsonSerializerOptions
         {
             WriteIndented = true,
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
         var inputSchemaDict = JsonConvert.DeserializeObject<Dictionary<string, object>>(Parameters.Schema.ToJson());
         var outputSchemaDict = JsonConvert.DeserializeObject<Dictionary<string, object>>(Results.Schema.ToJson());
         return JsonConvert.SerializeObject(new 
         {
-            Id = Id,
-            Purpose = Purpose,
-            Description = Description,
+            Id,
+            Purpose,
+            Description,
             Input = inputSchemaDict,
             Output = outputSchemaDict,
         });
@@ -97,16 +98,16 @@ public abstract class AssistantTool
             var result = await Exec(jsonInput);
             UpdateStatus(ToolState.Completed, $"Tool {Id} completed", new Dictionary<string, object> { { "result", result } });
                 
-            return new ToolResults(id: invocationId, success: true, null, JsonConvert.SerializeObject(result));
+            return new ToolResults(toolId: Id, id: invocationId, success: true, null, JsonConvert.SerializeObject(result));
         }
         catch (ValidationError error)
         {
             UpdateStatus(ToolState.Failed, $"Tool {Id} failed", new Dictionary<string, object> { { "result", error.CollectErrors() } });
-            return new ToolResults(id: invocationId, success: false, $"Validation error: {error.CollectErrors()}", default);
+            return new ToolResults(toolId: Id, id: invocationId, success: false, $"Validation error: {error.CollectErrors()}", default);
         }
         catch (Exception error)
         {
-            return new ToolResults(id: invocationId, success: false, error.Message, default);
+            return new ToolResults(toolId: Id, invocationId, success: false, error.Message, default);
         }
     }
 }

@@ -4,6 +4,7 @@ using Noetix.Agents.Tools;
 using Noetix.LLM.Requests;
 using Newtonsoft.Json;
 using Noetix.LLM.Common;
+using Noetix.LLM.Tools;
 
 namespace Noetix.Agents;
 
@@ -30,6 +31,8 @@ public class Conversation
     private readonly string _systemPrompt;
     private readonly List<ToolDefinition>? _toolDefinitions;
     private readonly Assistant _assistant;
+    private readonly CancellationToken _cancellationToken;
+    private readonly Action<string>? _streamHandler;
 
     public Conversation(
         Assistant assistant,
@@ -41,8 +44,10 @@ public class Conversation
         List<ToolDefinition>? toolDefinitions,
         int? maxDepth,
         List<Message>? history = null,
-        GenerationOptions options = null,
-        Action<Message>? onMessage = null
+        GenerationOptions? options = null,
+        Action<Message>? onMessage = null,
+        Action<string>? streamHandler = null,
+        CancellationToken cancellationToken = default
     )
     {
         _assistant = assistant;
@@ -61,11 +66,13 @@ public class Conversation
         _onMessage = onMessage;
         _options = options;
         _toolDefinitions = toolDefinitions;
+        _streamHandler = streamHandler;
+        _cancellationToken = cancellationToken;
     }
 
     public async Task<AssistantMessage> Send(UserMessage message)
     {
-        _assistant.UpdateStatus(AssistantStatusKind.Chat, AssistantStatusState.Working, "Sending message to LLM", "Sending message to LLM...");
+        _assistant.UpdateStatus(AssistantStatusKind.Chat, AssistantStatusState.Working, "Sending message...", "Sending message...");
                 
         if (_thread.Count - _startingThreadSize > _maxDepth.GetValueOrDefault(20))
         {
@@ -82,10 +89,15 @@ public class Conversation
             Model = _model,
             SystemPrompt = _systemPrompt,
             Options = _options,
-            ToolDefinitions = _toolDefinitions
+            ToolDefinitions = _toolDefinitions,
+            
         };
 
-        var response = await _llm.Complete(request);
+        
+        
+        var response = (_streamHandler != null) ? await StreamMessage(request): await _llm.Complete(request);
+        // var response = await _llm.Complete(request);
+        
         logger.Info($"Received response from LLM: {response.Content}");
         try
         {
@@ -99,19 +111,18 @@ public class Conversation
             if (response.ToolInvocations is { Count: > 0 } && _toolProcessor != null)
             {
                 _assistant.UpdateStatus(AssistantStatusKind.Tool, AssistantStatusState.Started, "Processing tool requests", $"Processing {response.ToolInvocations.Count} tool requests...");
-                var responses = await _toolProcessor.Process(messageContent, response.ToolInvocations);
-                var results = responses.Select(r => r.Result).ToList();
+                var results = await _toolProcessor.Process(response.ToolInvocations, ToolStatusHandler);
                 // var resultsJson = JsonConvert.SerializeObject(results);
                 _assistant.UpdateStatus(AssistantStatusKind.Tool, AssistantStatusState.Completed, "Tool requests processed", $"Processed {response.ToolInvocations.Count} tool requests.");
-                var messages = responses.Select(r =>
+                var messages = results.Select(r =>
                 {
-                    var successStatus = r.Result.Success
+                    var successStatus = r.Success
                         ? "successfully."
-                        : $"with the following error: {r.Result.Error}";
-                    return $" * {r.Tool} executed {successStatus}";
+                        : $"with the following error: {r.Error}";
+                    return $"{r.ToolId} executed {successStatus}";
                 }).ToList();
                 var responseMessage = new UserMessage(content: $"{string.Join("\n\n", messages)}",
-                    toolResults: results);
+                    toolResults: results.ToList());
                 return await Send(responseMessage);
             }
 
@@ -131,6 +142,40 @@ public class Conversation
             return new AssistantMessage("I'm sorry, I'm having trouble processing that request.");
         }
     }
+    
+    private void ToolStatusHandler(ToolStatusUpdate update)
+    {
+        _assistant.UpdateStatus(AssistantStatusKind.Tool, update.State switch
+        {
+            ToolState.Running => AssistantStatusState.Working,
+            ToolState.Completed => AssistantStatusState.Completed,
+            ToolState.Failed => AssistantStatusState.Failed,
+            _ => AssistantStatusState.Working
+        }, $"Tool {update.ToolId} status update", $"Tool {update.ToolId}: {update.Message}");
+    }
+
+    private async Task<CompletionResponse> StreamMessage(CompletionRequest request)
+    {
+        if (_streamHandler == null)
+        {
+            throw new Exception("Stream handler is not set");
+        }
+        var messageContent = "";
+        var toolRequests = new List<ToolInvocationRequest>();
+        
+        var messageAccumulator = new Assistant.StreamHandler(token =>
+        {
+            
+            _streamHandler.Invoke(token);
+            messageContent += token;
+        }, onToolRequest: invocation => toolRequests.Add(invocation));
+        
+        await _llm.StreamComplete(request, messageAccumulator, _cancellationToken);
+        CompletionResponse response =
+            new CompletionResponse(request.Model, [messageContent], toolRequests: toolRequests.ToArray()); 
+        
+        return response;
+    }
 
     private async Task<UserMessage> GenerateResponse(string content, List<ResponseReason> triggers)
     {
@@ -147,10 +192,7 @@ public class Conversation
                         logger.Info("Tools request received, but no tool processor is available");
                         break;
                     }
-                    _assistant.UpdateStatus(AssistantStatusKind.Tool, AssistantStatusState.Started, "Extracting tool requests", $"Extracting tool requests...");
-                    var toolRequests = _toolProcessor.ExtractToolsRequests(content).ToList();
-                    _assistant.UpdateStatus(AssistantStatusKind.Tool, AssistantStatusState.Started, "Processing tool requests", $"Processing {toolRequests.Count()} tool requests...");
-                    var toolResults = await _toolProcessor.Process(content, toolRequests, update => {
+                    var toolResults = await _toolProcessor.ExtractAndProcess(content, update => {
                         _assistant.UpdateStatus(AssistantStatusKind.Tool, update.State switch
                             {
                                 ToolState.Running => AssistantStatusState.Working,
@@ -159,8 +201,7 @@ public class Conversation
                                 _ => AssistantStatusState.Working
                             }, "Update on tool ${update.ToolId}", $"Tool {update.ToolId}: {update.Message}");
                     });
-                    _assistant.UpdateStatus(AssistantStatusKind.Tool, AssistantStatusState.Completed, "Tool requests processed", $"Processed {toolRequests.Count()} tool requests.");
-                    var toolResultMessages = toolResults.Select(r =>
+                     var toolResultMessages = toolResults.Select(r =>
                         "<tool_result>\n" + JsonConvert.SerializeObject(r.Result) + "\n</tool_result>");
                     var toolResultContent = string.Join("\n\n", toolResultMessages);
                     result += toolResultContent;

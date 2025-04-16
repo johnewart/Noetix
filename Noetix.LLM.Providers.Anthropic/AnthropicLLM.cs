@@ -21,7 +21,7 @@ public class AnthropicLLM : LLMProvider
         initialDelay: TimeSpan.FromSeconds(3),
         maxDelay: TimeSpan.FromSeconds(30),
         backoffStrategy: RetryPolicy.BackoffStrategy.Exponential,
-        shouldRetry: ex => (ex is Exception && ex.Message.Contains("429") || ex.Message.Contains("500")) 
+        shouldRetry: ex => (ex is Exception && ex.Message.Contains("429") || ex.Message.Contains("500"))
     );
 
     public AnthropicLLM(AnthropicConfig config, HttpClient? httpClient = null)
@@ -37,14 +37,14 @@ public class AnthropicLLM : LLMProvider
         public string ApiKey { get; set; }
     }
 
-    private async Task<HttpResponseMessage> SendRequestAsync(AnthropicRequest request)
+    private async Task<HttpResponseMessage> SendRequestAsync(AnthropicRequest request, CancellationToken cancellationToken = default)
     {
         var json = AnthropicRequestModule.encode(request).ToString();
         var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
         _logger.Info("Content: " + json);
 
         _logger.Info($"Sending request to Anthropic API with model {request.Model}");
-        var response = await _httpClient.PostAsync("https://api.anthropic.com/v1/messages", content);
+        var response = await _httpClient.PostAsync("https://api.anthropic.com/v1/messages", content, cancellationToken: cancellationToken);
         _logger.Info(
             $"Received response from Anthropic API with status {response.StatusCode} and content {await response.Content.ReadAsStringAsync()}");
 
@@ -66,6 +66,12 @@ public class AnthropicLLM : LLMProvider
             }
         }
 
+        // Only add text if there's no tool results in this message
+        if (message.Content != "" && message.ToolResults == null || message.ToolResults?.Count == 0)
+        {
+            contentBlocks.Add(ContentBlock.NewTCB(new TextContentBlock(message.Content)));
+        }
+
         if (message.ToolRequests != null)
         {
             foreach (var toolRequest in message.ToolRequests)
@@ -82,16 +88,12 @@ public class AnthropicLLM : LLMProvider
             }
         }
 
-        if (message.Content != "")
-        {
-            contentBlocks.Add(ContentBlock.NewTCB(new TextContentBlock(message.Content)));
-        }
 
         return new AnthropicMessage(role: message.Role, content: ListModule.OfSeq(contentBlocks));
     }
 
 
-    public async Task<CompletionResponse> Complete(CompletionRequest request)
+    public async Task<CompletionResponse> Complete(CompletionRequest request, CancellationToken cancellationToken = default)
     {
         var DefaultMaxTokens = 8192;
 
@@ -107,12 +109,13 @@ public class AnthropicLLM : LLMProvider
             messages: ListModule.OfSeq(anthropicMessages),
             maxTokens: request.Options?.MaxTokens ?? DefaultMaxTokens,
             systemPrompt: request.SystemPrompt,
-            tools: ListModule.OfSeq(tools ?? new List<AnthropicToolDefinition>()));
+            tools: ListModule.OfSeq(tools ?? new List<AnthropicToolDefinition>()),
+            stream: false);
 
         _logger.Info($"Completing messages with model {request.Model}");
         return await _retryPolicy.ExecuteAsync(async () =>
         {
-            var response = await SendRequestAsync(anthropicRequest);
+            var response = await SendRequestAsync(anthropicRequest, cancellationToken);
 
             if (response.IsSuccessStatusCode)
             {
@@ -129,6 +132,7 @@ public class AnthropicLLM : LLMProvider
                             Parameters = t.Input.Value<JObject>()
                         });
 
+
                     var textBlocks = anthropicResponse.ResultValue.TextBlocks.Select(c => c.Text).ToArray();
                     return new CompletionResponse(model: request.Model, textBlocks: textBlocks,
                         toolRequests: toolInvocationRequests.ToArray());
@@ -140,42 +144,162 @@ public class AnthropicLLM : LLMProvider
             }
 
             throw new ApiError($"API request failed with status {response.StatusCode} ({(int)response.StatusCode}");
-        });
+        }, cancellationToken);
     }
 
-    public async Task<bool> StreamComplete(CompletionRequest request, IStreamingResponseHandler handler, CancellationToken cancellationToken)
+    public async Task<bool> StreamComplete(CompletionRequest request, IStreamingResponseHandler handler,
+        CancellationToken cancellationToken)
     {
         var anthropicMessages = request.Messages.Select(m => convertMessage(m)).ToList();
+        var tools = request.ToolDefinitions?.Select(t => new AnthropicToolDefinition(
+            name: t.Name,
+            description: t.Description,
+            inputSchema: JsonConvert.DeserializeObject<JToken>(t.ParametersSchema.ToJson())
+        ));
         // var request = new AnthropicRequest { Model = options.Model, Messages = anthropicMessages, MaxTokens = 1024, Tools = null };
         var anthropicRequest = new AnthropicRequest(
             model: request.Model,
             messages: ListModule.OfSeq(anthropicMessages),
             maxTokens: 1024,
             systemPrompt: request.SystemPrompt ?? DefaultSystemPrompt,
-            tools: null);
+            tools: ListModule.OfSeq(tools ?? new List<AnthropicToolDefinition>()),
+            stream: true);
 
-        var response = await SendRequestAsync(anthropicRequest);
+        _logger.Debug("Streaming completion from Anthropic API");
+        var json = AnthropicRequestModule.encode(anthropicRequest).ToString();
+        var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+        _logger.Debug("Content: " + json);
 
-        if (response.IsSuccessStatusCode)
+        var httpRequest = new HttpRequestMessage()
         {
-            var stream = await response.Content.ReadAsStreamAsync();
-            using (var reader = new StreamReader(stream))
+            Method = HttpMethod.Post,
+            RequestUri = new Uri("https://api.anthropic.com/v1/messages"),
+            Content = content,
+        };
+
+        ContentBlockStart? currentBlock = null; 
+        var currentToolJsonString = "";
+        
+        var blockHandler = (StreamBlock block) =>
+        {
+            switch (block)
             {
-                string? line;
-                while ((line = await reader.ReadLineAsync()) != null)
+                case StreamBlock.ContentBlockDelta cbd:
+                    switch (cbd.Item.Delta)
+                    {
+                        case DeltaBlock.TextDelta td:
+                            handler.OnToken(td.Item.Text);
+                            break;
+                        case DeltaBlock.JsonDelta jd:
+                            currentToolJsonString += jd.Item.PartialJson;
+                            break;
+                        default:
+                            _logger.Warn($"Unknown delta type {cbd.Item.Delta.GetType()}");
+                            break;
+                    }
+                    break;
+                case StreamBlock.ContentBlockStart cb:
+                    currentBlock = cb.Item;
+                    break;
+                case StreamBlock.ContentBlockStop cb:
+                    switch (currentBlock?.ContentBlock)
+                    {
+                        case ContentBlock.TUB tub:
+                            var toolInputObject = JsonConvert.DeserializeObject<JObject>(currentToolJsonString);
+                            currentToolJsonString = String.Empty;
+                            if (toolInputObject == null)
+                            {
+                                _logger.Warn($"Tool input object is null");
+                                break;
+                            }
+                           
+                            handler.OnToolRequest(new ToolInvocationRequest
+                            {
+                                Id = tub.Item.Id,
+                                Tool = tub.Item.Name,
+                                Parameters = toolInputObject
+                            });
+                            break;
+                                
+                        default:
+                            break;
+                    }
+                    currentBlock = null;
+                    break;
+                default:
+                    _logger.Debug($"Unhandled block type {block.GetType()}");
+                    break;
+            }
+        };
+
+        using (var response = await _httpClient.SendAsync(httpRequest))
+        {
+            using (Stream responseStream = await response.Content.ReadAsStreamAsync())
+            {
+                using (var reader = new StreamReader(responseStream))
                 {
-                    handler.OnToken(line);
+                    var bufferSize = 8192;
+                    var buffer = new char[bufferSize];
+                    var offset = 0;
+                    var readSize = 128;
+                    var stringoffset = 0;
+
+                    while (true)
+                    {
+                        if (cancellationToken.IsCancellationRequested)
+                        {
+                            handler.OnError(new OperationCanceledException("Operation was canceled"));
+                            return false;
+                        }
+                        
+                        var bytesRead = await reader.ReadAsync(buffer, offset <= 0 ? 0 : offset - 1, readSize);
+                        if (bytesRead == 0)
+                        {
+                            break;
+                        }
+
+                        offset += bytesRead;
+                        if (offset >= bufferSize)
+                        {
+                            bufferSize *= 2;
+                            Array.Resize(ref buffer, bufferSize);
+                        }
+
+                        var line = new string(buffer, 0, offset);
+                        var lineoffset = 0;
+                        while (lineoffset != -1)
+                        {
+                            lineoffset = line.IndexOf("\n", stringoffset, StringComparison.Ordinal);
+                            if (lineoffset == -1)
+                            {
+                                break;
+                            }
+
+                            var data = line.Substring(stringoffset, lineoffset - stringoffset);
+                            stringoffset = lineoffset + 1;
+                            if (data.StartsWith("data:"))
+                            {
+                                data = data.Substring(5);
+
+                                var result = StreamBlockModule.decode(data).ResultValue;
+                                if (result == null)
+                                {
+                                    continue;
+                                }
+
+                                blockHandler(result);
+                            }
+                        }
+                    }
+
+                    handler.OnComplete();
+                    return true;
                 }
             }
-
-            handler.OnComplete();
-            return true;
         }
-
-        throw new ApiError($"API request failed with status {response.StatusCode}");
     }
 
-    public async Task<CompletionResponse> Generate(CompletionRequest request)
+    public async Task<CompletionResponse> Generate(CompletionRequest request, CancellationToken cancellationToken = default)
     {
         if (request.Messages.Count == 0)
         {
@@ -195,30 +319,20 @@ public class AnthropicLLM : LLMProvider
 
     public async Task<List<ModelDefinition>> GetModels()
     {
-        var models = new List<ModelDefinition>()
+        _logger.Info($"Listing models from Anthropic API");
+        var response = await _httpClient.GetAsync("https://api.anthropic.com/v1/models");
+        _logger.Debug(
+            $"Received response from Anthropic API with status {response.StatusCode} and content {await response.Content.ReadAsStringAsync()}");
+
+        if (response.IsSuccessStatusCode)
         {
-            new ModelDefinition
+            var jsonString = await response.Content.ReadAsStringAsync();
+            var models = JsonConvert.DeserializeObject<AnthropicModelResponse>(jsonString);
+            return models.Data.Select(m => new ModelDefinition
             {
-                Name = "Claude Sonnet 3.5 (latest)",
-                Model = "claude-3-5-sonnet-latest",
-                Description =
-                    "Great for reasoning, coding, multilingual tasks, long-context handling, honesty, and image processing. Generates rich and coherent text.",
-                ContextWindow = 200000,
-                MaxTokens = 8192,
-                SupportsJsonOutput = true,
-                SupportsTextInput = true,
-                SupportsTextOutput = true,
-                SupportsImageInput = true,
-                SupportsImageOutput = false,
-                SupportsAudioInput = false,
-                SupportsAudioOutput = false,
-            },
-            new ModelDefinition
-            {
-                Name = "Claude Haiku 3.5 (latest) - 2",
-                Model = "claude-3-5-haiku-latest-2",
-                Description =
-                    "Faster and less expensive than Sonnet, but less accurate. Great for generating shorter text.",
+                Name = m.DisplayName,
+                Model = m.Id,
+                Description = $"Anthropic AI model {m.DisplayName}",
                 ContextWindow = 200000,
                 MaxTokens = 8192,
                 SupportsJsonOutput = true,
@@ -228,8 +342,23 @@ public class AnthropicLLM : LLMProvider
                 SupportsImageOutput = false,
                 SupportsAudioInput = false,
                 SupportsAudioOutput = false,
-            }
-        };
-        return models;
+            }).ToList();
+        }
+
+        throw new ApiError($"API request failed with status {response.StatusCode}");
+    }
+
+
+    protected struct AnthropicModel
+    {
+        [JsonProperty("type")] public string Type { get; set; }
+        [JsonProperty("id")] public string Id { get; set; }
+        [JsonProperty("display_name")] public string DisplayName { get; set; }
+        [JsonProperty("created_at")] public DateTime CreatedAt { get; set; }
+    }
+
+    protected struct AnthropicModelResponse
+    {
+        [JsonProperty("data")] public List<AnthropicModel> Data { get; set; }
     }
 }

@@ -12,4 +12,8 @@
       <PackageReference Include="NLog" Version="5.3.4" />
       <PackageReference Include="ServiceStack" Version="8.5.2" />
     </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Noetix.Codecs\Noetix.Codecs.fsproj" />
+    </ItemGroup>
 </Project>

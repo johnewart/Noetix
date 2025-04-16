@@ -11,5 +11,5 @@ public record CompletionRequest
         
     public GenerationOptions? Options { get; set; }
     public List<ToolDefinition>? ToolDefinitions { get; set; }
-    public IStreamingResponseHandler? StreamingHandler { get; set; }
+    
 }

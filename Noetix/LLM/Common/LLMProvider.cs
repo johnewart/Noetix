@@ -6,15 +6,16 @@ public interface LLMProvider
 {
     bool SupportsToolsNatively { get; }
         
-    Task<CompletionResponse> Complete(CompletionRequest request);
+    Task<CompletionResponse> Complete(CompletionRequest request, CancellationToken cancellationToken = default);
 
     Task<bool> StreamComplete(
         CompletionRequest request,
         IStreamingResponseHandler handler,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken = default);
 
     Task<CompletionResponse> Generate(
-        CompletionRequest request);
+        CompletionRequest request, 
+        CancellationToken cancellationToken = default);
         
     Task<List<ModelDefinition>> GetModels();
         

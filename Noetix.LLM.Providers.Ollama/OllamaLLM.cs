@@ -25,7 +25,7 @@ public class OllamaLLM(OllamaConfig config) : LLMProvider
     public bool SupportsToolsNatively => false;
 
 
-    public async Task<CompletionResponse> Complete(CompletionRequest request)
+    public async Task<CompletionResponse> Complete(CompletionRequest request, CancellationToken cancellationToken = default)
     {
         var requestTools = request.ToolDefinitions?.Select(t => new OllamaTool()
         {
@@ -89,7 +89,7 @@ public class OllamaLLM(OllamaConfig config) : LLMProvider
         return true;
     }
 
-    public async Task<CompletionResponse> Generate(CompletionRequest request)
+    public async Task<CompletionResponse> Generate(CompletionRequest request, CancellationToken cancellationToken = default)
     {
         var response = await _client.Generate(request);
         if (response == null)

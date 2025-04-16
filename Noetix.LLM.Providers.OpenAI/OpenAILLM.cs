@@ -1,3 +1,4 @@
+using NLog;
 using Noetix.LLM.Common;
 using Noetix.LLM.Requests;
 using OpenAI;
@@ -10,6 +11,8 @@ namespace Noetix.LLM.Providers.OpenAI;
 public class OpenAILLM : LLMProvider
 {
 
+    private Logger _logger = LogManager.GetCurrentClassLogger();
+    
     public class OpenAIConfig
     {
         public string ApiKey { get; set; }
@@ -44,14 +47,14 @@ public class OpenAILLM : LLMProvider
     public bool SupportsToolsNatively => true;
 
 
-    public async Task<CompletionResponse> Complete(CompletionRequest request)
+    public async Task<CompletionResponse> Complete(CompletionRequest request, CancellationToken cancellationToken = default)
     {
         var messages = new List<ChatMessage>(){ new SystemChatMessage(request.SystemPrompt) };
         messages.AddRange(request.Messages.Select(ConvertMessage).ToList());
         
         
         var chat = client.GetChatClient(request.Model);
-        var response = (await chat.CompleteChatAsync(messages: messages)).Value;
+        var response = (await chat.CompleteChatAsync(messages: messages, cancellationToken: cancellationToken)).Value;
 
         if (response.Content == null)
         {
@@ -69,22 +72,23 @@ public class OpenAILLM : LLMProvider
         var messages = new List<ChatMessage>(){ new SystemChatMessage(request.SystemPrompt) };
         messages.AddRange(request.Messages.Select(ConvertMessage).ToList());
         
+        _logger.Info("Streaming completion for {model}", request.Model);
         var chat = client.GetChatClient(request.Model);
         var response = chat.CompleteChatStreamingAsync(messages: messages, cancellationToken: cancellationToken);
         
         await foreach (var message in response)
         {
-            if (message.ContentUpdate != null)
-            {
-                var textBlocks = message.ContentUpdate.Select(c => c.Text).ToArray();
-                handler.OnToken(textBlocks.Join(" "));
-            }
+            if (message?.ContentUpdate == null) continue;
+            
+            var textBlocks = message.ContentUpdate.Select(c => c.Text).ToArray();
+                
+            handler.OnToken(textBlocks.Join(" "));
         }
 
         return true;
     }
 
-    public async Task<CompletionResponse> Generate(CompletionRequest request)
+    public async Task<CompletionResponse> Generate(CompletionRequest request, CancellationToken cancellationToken = default)
     {
         throw new NotImplementedException();
     }

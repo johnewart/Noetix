@@ -17,7 +17,7 @@ public class SearchKnowledgebaseOutput(List<Document> documents)
 public class SearchKnowledgebaseTool(Knowledgebase knowledgeBase) : AssistantTool
 {
     public override string Id => "SearchKnowledgebase";
-    public override string Purpose => "Search Knowledgebase";
+    public override string Purpose => "Search the Knowledgebase";
 
     public override ToolResultsSchema Results => new(typeof(SearchKnowledgebaseOutput));
     public override ToolParamsSchema Parameters => new(typeof(SearchKnowledgebaseInput));

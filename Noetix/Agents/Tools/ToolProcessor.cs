@@ -15,30 +15,29 @@ public class ToolProcessor(IEnumerable<AssistantTool> tools)
         statusCallbacks.Add(callback);
     }
 
-    public record ToolResponse
+    public async Task<ToolResults[]> ExtractAndProcess(string content,
+        Action<ToolStatusUpdate>? onToolStatusUpdate = null)
     {
-        public string Tool { get; set; }
-        public ToolResults Result { get; set; }
+        var toolRequests = ExtractToolsRequests(content).ToList();
+        return await Process(toolRequests, onToolStatusUpdate);
     }
-    
-    
-    public async Task<ToolResponse[]> Process(string content, List<ToolInvocationRequest> toolRequests, Action<ToolStatusUpdate>? onToolStatusUpdate = null)
+
+    public async Task<ToolResults[]> Process(List<ToolInvocationRequest> toolRequests,
+        Action<ToolStatusUpdate>? onToolStatusUpdate = null)
     {
         if (!toolRequests.Any())
         {
             return
             [
-                new ToolResponse{
-                    Tool = "no_tools_requested",
-                    Result = new ToolResults(
-                        id: "no_tools_requested",
-                        success: false,
-                        error: "No tools were requested"
-                    )}
+                new ToolResults(toolId: "no_tools_requested",
+                    id: "no_tools_requested",
+                    success: false,
+                    error: "No tools were requested"
+                )
             ];
         }
 
-        var toolResults = toolRequests.Select<ToolInvocationRequest, Task<ToolResponse>>(async (request) =>
+        var toolResults = toolRequests.Select<ToolInvocationRequest, Task<ToolResults>>(async (request) =>
             {
                 var tool = tools.FirstOrDefault(t => t.Id == request.Tool);
                 if (tool != null)
@@ -47,7 +46,7 @@ public class ToolProcessor(IEnumerable<AssistantTool> tools)
                     {
                         ToolId = request.Tool,
                         State = ToolState.Running,
-                        Message = $"Invoking tool {tool.Id}",
+                        Message = $"Requesting tool",
                     });
 
                     try
@@ -60,24 +59,21 @@ public class ToolProcessor(IEnumerable<AssistantTool> tools)
                             {
                                 ToolId = request.Tool,
                                 State = ToolState.Completed,
-                                Message = $"Tool {tool.Id} completed",
+                                Message = $"Finished running",
                                 Data = new Dictionary<string, object> { { "result", results } }
                             });
-                            return new ToolResponse { Tool = request.Tool, Result = results };
+                        }
+                        else
+                        {
+                            onToolStatusUpdate?.Invoke(new ToolStatusUpdate
+                            {
+                                ToolId = request.Tool,
+                                State = ToolState.Failed,
+                                Message = $"Failed to execute: {results.Error}",
+                            });
                         }
 
-                        onToolStatusUpdate?.Invoke(new ToolStatusUpdate
-                        {
-                            ToolId = request.Tool,
-                            State = ToolState.Failed,
-                            Message = $"Tool {tool.Id} failed to execute: {results.Error}",
-                        });
-                        return new ToolResponse
-                        {
-                            Tool = request.Tool,
-                            Result = new ToolResults(id: request.Id, false,
-                                $"Tool {request.Tool} failed to execute: {results.Error}")
-                        };
+                        return results;
                     }
                     catch (Exception e)
                     {
@@ -87,12 +83,12 @@ public class ToolProcessor(IEnumerable<AssistantTool> tools)
                             State = ToolState.Failed,
                             Message = $"Tool {tool.Id} failed to execute: {e.Message}"
                         });
-                        return new ToolResponse
-                        {
-                            Tool = request.Tool,
-                            Result = new ToolResults(id: request.Id, false,
-                                $"Tool {request.Tool} failed to execute: {e.Message}")
-                        };
+                        return new ToolResults(
+                            id: request.Id,
+                            toolId: request.Tool,
+                            success: false,
+                            error: $"Tool {tool.Id} failed to execute: {e.Message}"
+                        );
                     }
                 }
 
@@ -102,15 +98,13 @@ public class ToolProcessor(IEnumerable<AssistantTool> tools)
                     State = ToolState.Failed,
                     Message = $"I'm sorry, I couldn't find the tool you requested ({request.Tool})."
                 });
-                return new ToolResponse
-                {
-                    Tool = request.Tool,
-                    Result = new ToolResults(id: request.Id, false,
-                        $"I'm sorry, I couldn't find the tool you requested ({request.Tool}).")
-                };
+                return new ToolResults(toolId: request.Tool,
+                    id: request.Id, false,
+                    $"I'm sorry, I couldn't find the tool you requested ({request.Tool})."
+                );
             }
         );
-            
+
         return await Task.WhenAll(toolResults);
     }
 
@@ -131,10 +125,12 @@ public class ToolProcessor(IEnumerable<AssistantTool> tools)
         return toolIds;
     }
 
-    protected record ToolHelpResponse {
+    protected record ToolHelpResponse
+    {
         public string Tool { get; set; }
         public string Help { get; set; }
     }
+
     public string ProcessToolHelp(string content)
     {
         var toolIds = ExtractToolHelpRequests(content);
@@ -143,11 +139,14 @@ public class ToolProcessor(IEnumerable<AssistantTool> tools)
             var tool = tools.FirstOrDefault(t => t.Id == toolId);
             if (tool != null)
             {
-                return JsonConvert.SerializeObject( new ToolHelpResponse { Tool = tool.Id, Help = tool.Instructions() });
+                return JsonConvert.SerializeObject(new ToolHelpResponse { Tool = tool.Id, Help = tool.Instructions() });
             }
             else
             {
-                return JsonConvert.SerializeObject( new ToolHelpResponse { Tool = toolId, Help = $"I'm sorry, I couldn't find the tool you requested help with ({toolId})."  });
+                return JsonConvert.SerializeObject(new ToolHelpResponse
+                {
+                    Tool = toolId, Help = $"I'm sorry, I couldn't find the tool you requested help with ({toolId})."
+                });
             }
         }).ToList();
 
@@ -201,7 +200,7 @@ public class ToolProcessor(IEnumerable<AssistantTool> tools)
                     {
                         toolRequestErrors.Add($"A tool request is missing a tool ID: {block}");
                     }
-                        
+
                     toolRequests.Add(toolRequest);
                 }
             }

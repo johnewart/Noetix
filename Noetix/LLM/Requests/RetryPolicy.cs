@@ -21,7 +21,7 @@ public class RetryPolicy(
         Exponential
     }
 
-    public async Task<T> ExecuteAsync<T>(Func<Task<T>> operation)
+    public async Task<T> ExecuteAsync<T>(Func<Task<T>> operation, CancellationToken cancellationToken = default)
     {
         int attempt = 1;
         Exception lastException = null;
