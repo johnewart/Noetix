@@ -41,7 +41,7 @@ public class AnthropicLLM : LLMProvider
     {
         var json = AnthropicRequestModule.encode(request).ToString();
         var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-        _logger.Info("Content: " + json);
+        // _logger.Trace("Content: " + json);
 
         _logger.Info($"Sending request to Anthropic API with model {request.Model}");
         var response = await _httpClient.PostAsync("https://api.anthropic.com/v1/messages", content, cancellationToken: cancellationToken);

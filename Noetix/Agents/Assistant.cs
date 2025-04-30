@@ -18,7 +18,6 @@ public class Assistant(
     List<AssistantTool>? tools = null,
     ChatHistoryStore? chatHistoryStore = null,
     MemoryStore? memoryStore = null,
-    int maxThreadDepth = 15,
     Action<AssistantStatusMessage>? onStatusUpdate = null,
     GenerationOptions? defaultGenerationOptions = null)
 {
@@ -109,6 +108,7 @@ public class Assistant(
         UserMessage prompt,
         GenerationOptions? options = null,
         string chatSessionId = "default",
+        int maxDepth = 10, 
         Action<Message>? onMessageCallback = null,
         Action<string>? streamHandler = null,
         CancellationToken cancellationToken = default
@@ -134,7 +134,7 @@ public class Assistant(
             toolProcessor: toolProcessor,
             memoryProcessor: memoryProcessor,
             toolDefinitions: ToolDefinitions,
-            maxThreadDepth,
+            maxDepth: maxDepth,
             History(chatSessionId),
             llmOptions,
             onMessage,
@@ -167,7 +167,7 @@ public class Assistant(
             toolProcessor: toolProcessor,
             memoryProcessor: null,
             toolDefinitions: ToolDefinitions,
-            maxDepth: maxThreadDepth,
+            maxDepth: 2, // One message for the prompt, one for the response
             history: null,
             options: llmOptions,
             onMessage: onMessageCallback);

@@ -79,7 +79,7 @@ public class Conversation
             throw new Exception($"Max depth ({_maxDepth.GetValueOrDefault(20)}) reached");
         }
 
-        logger.Info($"Sending message to {_llm.ToString()}: {message.Content}");
+        logger.Trace($"Sending message to {_llm.ToString()}: {message.Content}");
         _thread.Add(message);
         _onMessage?.Invoke(message);
 
@@ -96,7 +96,6 @@ public class Conversation
         
         
         var response = (_streamHandler != null) ? await StreamMessage(request): await _llm.Complete(request);
-        // var response = await _llm.Complete(request);
         
         logger.Info($"Received response from LLM: {response.Content}");
         try
@@ -112,7 +111,6 @@ public class Conversation
             {
                 _assistant.UpdateStatus(AssistantStatusKind.Tool, AssistantStatusState.Started, "Processing tool requests", $"Processing {response.ToolInvocations.Count} tool requests...");
                 var results = await _toolProcessor.Process(response.ToolInvocations, ToolStatusHandler);
-                // var resultsJson = JsonConvert.SerializeObject(results);
                 _assistant.UpdateStatus(AssistantStatusKind.Tool, AssistantStatusState.Completed, "Tool requests processed", $"Processed {response.ToolInvocations.Count} tool requests.");
                 var messages = results.Select(r =>
                 {
