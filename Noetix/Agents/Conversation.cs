@@ -73,10 +73,11 @@ public class Conversation
     public async Task<AssistantMessage> Send(UserMessage message)
     {
         _assistant.UpdateStatus(AssistantStatusKind.Chat, AssistantStatusState.Working, "Sending message...", "Sending message...");
-                
-        if (_thread.Count - _startingThreadSize > _maxDepth.GetValueOrDefault(20))
+        var maxDepth = 200; //_maxDepth ?? 20;        
+        
+        if (_thread.Count - _startingThreadSize > maxDepth)
         {
-            throw new Exception($"Max depth ({_maxDepth.GetValueOrDefault(20)}) reached");
+            throw new Exception($"Max depth ({maxDepth}) reached");
         }
 
         logger.Trace($"Sending message to {_llm.ToString()}: {message.Content}");

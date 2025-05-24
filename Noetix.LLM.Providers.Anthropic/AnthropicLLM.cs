@@ -205,13 +205,11 @@ public class AnthropicLLM : LLMProvider
                     switch (currentBlock?.ContentBlock)
                     {
                         case ContentBlock.TUB tub:
-                            var toolInputObject = JsonConvert.DeserializeObject<JObject>(currentToolJsonString);
+                            var toolInputObject =
+                                JsonConvert.DeserializeObject<JObject>(currentToolJsonString)
+                                ?? new JObject();
+                            
                             currentToolJsonString = String.Empty;
-                            if (toolInputObject == null)
-                            {
-                                _logger.Warn($"Tool input object is null");
-                                break;
-                            }
                            
                             handler.OnToolRequest(new ToolInvocationRequest
                             {
@@ -251,10 +249,12 @@ public class AnthropicLLM : LLMProvider
                             handler.OnError(new OperationCanceledException("Operation was canceled"));
                             return false;
                         }
-                        
-                        var bytesRead = await reader.ReadAsync(buffer, offset <= 0 ? 0 : offset - 1, readSize);
+                        var readBuffer = new char[readSize];
+                        var bytesRead = await reader.ReadAsync(readBuffer, 0, readSize);
                         if (bytesRead == 0)
                         {
+                            _logger.Info($"End of stream reached, {offset} bytes read in total");
+                            _logger.Info($"Read: {new string(buffer, 0, offset)}");
                             break;
                         }
 
@@ -264,6 +264,8 @@ public class AnthropicLLM : LLMProvider
                             bufferSize *= 2;
                             Array.Resize(ref buffer, bufferSize);
                         }
+                        
+                        Array.Copy(readBuffer, 0, buffer, offset - bytesRead, bytesRead);
 
                         var line = new string(buffer, 0, offset);
                         var lineoffset = 0;

@@ -19,10 +19,11 @@ public abstract class JSONTask<I, O> : AssistantTask<I, O> where I : TaskParams
             {
                 return new List<string>
                 {
-                    "<response_format>",
+                    "<response_schema>",
                     ResponseSchema.ToJson(),
-                    "</response_format>",
+                    "</response_schema>",
                     "Make absolutely sure that the response is in the correct format.",
+                    "You are given the schema, return a valid JSON response that matches the schema - do NOT return a schema.",
                     "The schema for the response is included in the <response_format></response_format> tags.",
                     "Put your response in <response></response> tags so it can be extracted easily.",
                     "Remember: JSON is a strict format, and the response must be valid JSON to be accepted.",
