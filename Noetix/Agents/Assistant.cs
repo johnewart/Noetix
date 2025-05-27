@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
+using NJsonSchema;
+using Noetix.Agents.Context;
 using Noetix.Agents.Status;
 using Noetix.Agents.Tools;
 using Noetix.LLM.Common;
@@ -148,9 +150,11 @@ public class Assistant(
     }
 
     public async Task<AssistantMessage> Generate(
-        string prompt, 
+        string prompt,
+        List<ContextData>? contextProviders = null,
         GenerationOptions? options = null,             
-        Action<Message>? onMessageCallback = null
+        Action<Message>? onMessageCallback = null,
+        JsonSchema? responseSchema = null
     )
     {
         UpdateStatus(AssistantStatusKind.Chat,  AssistantStatusState.Started, "Generating response....", "Generating response....");
@@ -158,7 +162,7 @@ public class Assistant(
         var toolProcessor = new ToolProcessor(_tools ?? new List<AssistantTool>());
 
         var llmOptions = defaultGenerationOptions?.OverrideWith(options);
-            
+        
         var conversation = new Conversation(
             assistant: this,
             systemPrompt: SystemPrompt().Content,
@@ -170,7 +174,9 @@ public class Assistant(
             maxDepth: 2, // One message for the prompt, one for the response
             history: null,
             options: llmOptions,
-            onMessage: onMessageCallback);
+            onMessage: onMessageCallback,
+            contextProviders: contextProviders,
+            finalResponseSchema: responseSchema);
 
         var result = await conversation.Send(new(prompt));
 

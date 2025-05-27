@@ -92,6 +92,25 @@ public class AnthropicLLM : LLMProvider
         return new AnthropicMessage(role: message.Role, content: ListModule.OfSeq(contentBlocks));
     }
 
+    private string BuildSystemPrompt(CompletionRequest completionRequest)
+    {
+        var result = completionRequest.SystemPrompt;
+
+        if (result.Length == 0)
+        {
+            result = DefaultSystemPrompt;
+        }
+
+        if (completionRequest.ContextProviders != null)
+        {
+            var contextBlocks = completionRequest.ContextProviders.Select(p => p.ToString()).ToList();
+            var contextText = string.Join("\n\n", contextBlocks);
+            
+            result += "Here is the context that is being provided: \n" + contextText;
+        }
+        return result;
+    }
+    
 
     public async Task<CompletionResponse> Complete(CompletionRequest request, CancellationToken cancellationToken = default)
     {
@@ -108,7 +127,7 @@ public class AnthropicLLM : LLMProvider
             model: request.Model,
             messages: ListModule.OfSeq(anthropicMessages),
             maxTokens: request.Options?.MaxTokens ?? DefaultMaxTokens,
-            systemPrompt: request.SystemPrompt,
+            systemPrompt: BuildSystemPrompt(request),
             tools: ListModule.OfSeq(tools ?? new List<AnthropicToolDefinition>()),
             stream: false);
 
@@ -161,7 +180,7 @@ public class AnthropicLLM : LLMProvider
             model: request.Model,
             messages: ListModule.OfSeq(anthropicMessages),
             maxTokens: 1024,
-            systemPrompt: request.SystemPrompt ?? DefaultSystemPrompt,
+            systemPrompt: BuildSystemPrompt(request),
             tools: ListModule.OfSeq(tools ?? new List<AnthropicToolDefinition>()),
             stream: true);
 

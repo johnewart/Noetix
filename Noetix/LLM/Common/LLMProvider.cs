@@ -5,7 +5,7 @@ namespace Noetix.LLM.Common;
 public interface LLMProvider
 {
     bool SupportsToolsNatively { get; }
-        
+
     Task<CompletionResponse> Complete(CompletionRequest request, CancellationToken cancellationToken = default);
 
     Task<bool> StreamComplete(

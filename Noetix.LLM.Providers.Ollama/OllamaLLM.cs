@@ -1,4 +1,6 @@
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Noetix.Agents.Context;
 using Noetix.LLM.Common;
 using Noetix.LLM.Requests;
 using Noetix.LLM.Tools;
@@ -24,6 +26,12 @@ public class OllamaLLM(OllamaConfig config) : LLMProvider
 
     public bool SupportsToolsNatively => false;
 
+    private string GenerateContextBlock(List<ContextData> providers)
+    {
+        var blocks = providers.Select(p => p.ToString()).ToList();
+        return string.Join("\n\n", blocks);
+    }
+    
 
     public async Task<CompletionResponse> Complete(CompletionRequest request, CancellationToken cancellationToken = default)
     {
@@ -39,9 +47,13 @@ public class OllamaLLM(OllamaConfig config) : LLMProvider
         }).ToList();
             
         var chatMessages = request.Messages.Select(ConvertMessage).ToList();
+        
         if (!request.SystemPrompt.IsNullOrEmpty())
         {
-            chatMessages.Insert(0, new ChatMessage { Role = "system", Content = request.SystemPrompt });
+            var systemPrompt = request.SystemPrompt;
+            var contextPromptData = GenerateContextBlock(providers: request.ContextProviders ?? []);
+            
+            chatMessages.Insert(0, new ChatMessage { Role = "system", Content = systemPrompt + "\n\n" + contextPromptData });
         }
             
         var response = await _client.Chat(request.Model, chatMessages, tools: requestTools);

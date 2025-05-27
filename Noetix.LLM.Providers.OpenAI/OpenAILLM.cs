@@ -47,24 +47,56 @@ public class OpenAILLM : LLMProvider
     public bool SupportsToolsNatively => true;
 
 
+    private string GenerateSystemPrompt(CompletionRequest request)
+    {
+        var prompt = request.SystemPrompt;
+        var contextData = request.ContextProviders?.Select(p => p.ToXmlLikeBlock()).ToList() ?? [];
+        prompt += $"\n\n<CONTEXT>\n{contextData.Join("\n\n")}\n</CONTEXT>";
+
+        // prompt += request.ResponseSchema != null
+        //     ? $"\n\n<RESPONSE_FORMAT>\n{request.GenericResponseSchemaPreamble}\n</RESPONSE_FORMAT>\n"
+        //     : "";
+        return prompt;
+    }
+    
     public async Task<CompletionResponse> Complete(CompletionRequest request, CancellationToken cancellationToken = default)
     {
-        var messages = new List<ChatMessage>(){ new SystemChatMessage(request.SystemPrompt) };
-        messages.AddRange(request.Messages.Select(ConvertMessage).ToList());
-        
-        
-        var chat = client.GetChatClient(request.Model);
-        var response = (await chat.CompleteChatAsync(messages: messages, cancellationToken: cancellationToken)).Value;
-
-        if (response.Content == null)
+          
+        try
         {
-            throw new ApiError("No response content");
+            var messages = new List<ChatMessage>(){ new SystemChatMessage(GenerateSystemPrompt(request)) };
+            messages.AddRange(request.Messages.Select(ConvertMessage).ToList());
+            
+            var chat = client.GetChatClient(request.Model);
+            var options = new ChatCompletionOptions()
+            {
+                ResponseFormat = request.ResponseSchema != null
+                    ? ChatResponseFormat.CreateJsonSchemaFormat("json_schema",
+                        BinaryData.FromString(request.ResponseSchema.ToJson()))
+                    : ChatResponseFormat.CreateTextFormat()
+            };
+            
+            // options.ResponseFormat = ChatResponseFormat.CreateTextFormat();
+          
+            var response = (await chat.CompleteChatAsync(messages: messages, options: options, cancellationToken: cancellationToken))
+                .Value;
+            if (response.Content == null)
+            {
+                throw new ApiError("No response content");
+            }
+
+            var textBlocks = response.Content.Select(c => c.Text).ToArray();
+            var result = new CompletionResponse(model: request.Model, textBlocks: textBlocks);
+        
+            return result;
+        }
+        catch (Exception e)
+        {
+            _logger.Error(e);
+            throw new ApiError(e.Message);
         }
 
-        var textBlocks = response.Content.Select(c => c.Text).ToArray();
-        var result = new CompletionResponse(model: request.Model, textBlocks: textBlocks);
-        
-        return result;
+       
     }
 
     public async Task<bool> StreamComplete(CompletionRequest request, IStreamingResponseHandler handler, CancellationToken cancellationToken)

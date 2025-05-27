@@ -3,6 +3,8 @@ using NLog;
 using Noetix.Agents.Tools;
 using Noetix.LLM.Requests;
 using Newtonsoft.Json;
+using NJsonSchema;
+using Noetix.Agents.Context;
 using Noetix.LLM.Common;
 using Noetix.LLM.Tools;
 
@@ -33,6 +35,8 @@ public class Conversation
     private readonly Assistant _assistant;
     private readonly CancellationToken _cancellationToken;
     private readonly Action<string>? _streamHandler;
+    private List<ContextData>? _contextProviders;
+    private JsonSchema? _responseSchema;
 
     public Conversation(
         Assistant assistant,
@@ -47,6 +51,8 @@ public class Conversation
         GenerationOptions? options = null,
         Action<Message>? onMessage = null,
         Action<string>? streamHandler = null,
+        JsonSchema? finalResponseSchema = null,
+        List<ContextData>? contextProviders = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -68,6 +74,8 @@ public class Conversation
         _toolDefinitions = toolDefinitions;
         _streamHandler = streamHandler;
         _cancellationToken = cancellationToken;
+        _contextProviders = contextProviders;
+        _responseSchema = finalResponseSchema;
     }
 
     public async Task<AssistantMessage> Send(UserMessage message)
@@ -91,7 +99,8 @@ public class Conversation
             SystemPrompt = _systemPrompt,
             Options = _options,
             ToolDefinitions = _toolDefinitions,
-            
+            ContextProviders = _contextProviders,
+            ResponseSchema = _responseSchema,
         };
 
         
