@@ -9,10 +9,20 @@ public record ValidationOutcome
     public string? Error { get; set; }
 }
 
-public class ToolParamsSchema(Type inner)
+public class ToolParamsSchema
 {
-    public readonly JsonSchema Schema = JsonSchema.FromType(inner);
+    public readonly JsonSchema Schema;
 
+    public ToolParamsSchema(Type inner)
+    {
+        Schema = JsonSchema.FromType(inner);
+    }
+
+    public ToolParamsSchema(JsonSchema schema)
+    {
+        Schema = schema;
+    }
+    
     public ValidationOutcome Validate(string input)
     {
         var settings = new JsonSchemaValidatorSettings

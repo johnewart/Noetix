@@ -42,16 +42,23 @@ public class SharpVector : IDocumentSearchEngine
     public async Task<IEnumerable<RankedResult>> RankedSearch(string query, int limit, float? threshold = null)
     {
         _logger.Info($"Searching for documents with query: '{query}'");
-        var result = await vdb.SearchAsync(query, pageCount: limit);
-        var texts = result.Texts.ToList();
-        _logger.Info($"Found {texts.Count} documents");
-        return texts.Select(t =>
+        try
         {
-            var metadata = JsonSerializer.Deserialize<Dictionary<string, string>>(t.Metadata);
-            return new RankedResult(
-                new Document(id: metadata["Id"], content: t.Text, name: metadata["Name"], metadata: metadata),
-                t.VectorComparison);
-        });
+            var result = await vdb.SearchAsync(query, pageCount: limit);
+            var texts = result.Texts.ToList();
+            _logger.Info($"Found {texts.Count} documents");
+            return texts.Select(t =>
+            {
+                var metadata = JsonSerializer.Deserialize<Dictionary<string, string>>(t.Metadata);
+                return new RankedResult(
+                    new Document(id: metadata["Id"], content: t.Text, name: metadata["Name"], metadata: metadata),
+                    t.VectorComparison);
+            });
+        } catch (Exception ex)
+        {
+            _logger.Error(ex, $"Error during search: {ex.Message}");
+            return Enumerable.Empty<RankedResult>();
+        }
     }
 
     public Task RecreateTables()

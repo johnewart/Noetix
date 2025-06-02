@@ -10,10 +10,20 @@ public class ToolResult<O>
     public O? Result { get; set; }
 }
 
-public class ToolResultsSchema(Type inner)
+public class ToolResultsSchema
 {
-    public readonly JsonSchema Schema = JsonSchema.FromType(inner);
-
+    public readonly JsonSchema Schema;
+    
+    public ToolResultsSchema(Type inner)
+    {
+        Schema = JsonSchema.FromType(inner);
+    }
+    
+    public ToolResultsSchema(JsonSchema schema)
+    {
+        Schema = schema;
+    }
+    
     public ValidationOutcome Validate(string input)
     {
         var result = Schema.Validate(input).ToList();
