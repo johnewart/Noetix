@@ -14,7 +14,7 @@ public record CompletionRequest
     public GenerationOptions? Options { get; set; }
     public List<ToolDefinition>? ToolDefinitions { get; set; }
     public JsonSchema? ResponseSchema { get; set; }
-    public List<ContextData>? ContextProviders { get; set; }
+    public List<ContextData>? ContextData { get; set; }
 
     public string GenericResponseSchemaPreamble
     {

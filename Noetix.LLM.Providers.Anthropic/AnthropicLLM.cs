@@ -101,9 +101,9 @@ public class AnthropicLLM : LLMProvider
             result = DefaultSystemPrompt;
         }
 
-        if (completionRequest.ContextProviders != null)
+        if (completionRequest.ContextData != null)
         {
-            var contextBlocks = completionRequest.ContextProviders.Select(p => p.ToString()).ToList();
+            var contextBlocks = completionRequest.ContextData.Select(p => p.ToString()).ToList();
             var contextText = string.Join("\n\n", contextBlocks);
             
             result += "Here is the context that is being provided: \n" + contextText;

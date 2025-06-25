@@ -51,7 +51,7 @@ public class OllamaLLM(OllamaConfig config) : LLMProvider
         if (!request.SystemPrompt.IsNullOrEmpty())
         {
             var systemPrompt = request.SystemPrompt;
-            var contextPromptData = GenerateContextBlock(providers: request.ContextProviders ?? []);
+            var contextPromptData = GenerateContextBlock(providers: request.ContextData ?? []);
             
             chatMessages.Insert(0, new ChatMessage { Role = "system", Content = systemPrompt + "\n\n" + contextPromptData });
         }

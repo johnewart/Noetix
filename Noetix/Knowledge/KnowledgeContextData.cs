@@ -16,12 +16,12 @@ public class KnowledgeContextData(List<KnowledgeRecord> documents) : ContextData
     public override string Name => "Knowledgebase Documents";
     public override string Description => "A list of documents from the knowledgebase";
 
-    public override JObject Context
+    public override JToken Context
     {
         get
         {
             var json = JsonConvert.SerializeObject(documents);
-            return JObject.Parse(json);
+            return JToken.Parse(json);
         }
     }
 }

@@ -14,7 +14,7 @@ public record TaskResult<TO>
 
 public record TaskResponse<TO>
 {
-    public TO? Result { get; init; }
+    public required TO Result { get; init; }
 }
 
 public class TaskRunner
@@ -84,7 +84,7 @@ Follow these additional instructions when completing this task:
         var message = await assistant.Generate(
             prompt,
             responseSchema: JsonSchema.FromType<TaskResponse<TO>>(),
-            contextProviders: [context]);
+            contextData: [context]);
         
         try
         {

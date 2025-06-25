@@ -151,7 +151,7 @@ public class Assistant(
 
     public async Task<AssistantMessage> Generate(
         string prompt,
-        List<ContextData>? contextProviders = null,
+        List<ContextData>? contextData = null,
         GenerationOptions? options = null,             
         Action<Message>? onMessageCallback = null,
         JsonSchema? responseSchema = null
@@ -175,7 +175,7 @@ public class Assistant(
             history: null,
             options: llmOptions,
             onMessage: onMessageCallback,
-            contextProviders: contextProviders,
+            contextData: contextData,
             finalResponseSchema: responseSchema);
 
         var result = await conversation.Send(new(prompt));

@@ -8,7 +8,7 @@ public abstract class ContextData
 {
     public abstract string Name { get; }
     public abstract string Description { get; }
-    public abstract JObject Context { get; }
+    public abstract JToken Context { get; }
     
     public JsonSchema Schema => JsonSchema.FromSampleJson(JsonConvert.SerializeObject(Context));
 

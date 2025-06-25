@@ -50,7 +50,7 @@ public class OpenAILLM : LLMProvider
     private string GenerateSystemPrompt(CompletionRequest request)
     {
         var prompt = request.SystemPrompt;
-        var contextData = request.ContextProviders?.Select(p => p.ToXmlLikeBlock()).ToList() ?? [];
+        var contextData = request.ContextData?.Select(p => p.ToXmlLikeBlock()).ToList() ?? [];
         prompt += $"\n\n<CONTEXT>\n{contextData.Join("\n\n")}\n</CONTEXT>";
 
         // prompt += request.ResponseSchema != null
@@ -114,6 +114,7 @@ public class OpenAILLM : LLMProvider
             
             var textBlocks = message.ContentUpdate.Select(c => c.Text).ToArray();
                 
+            _logger.Info("Calling handler.OnToken with text blocks: {TextBlocks}", textBlocks.Join(" "));
             handler.OnToken(textBlocks.Join(" "));
         }
 

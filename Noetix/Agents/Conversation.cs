@@ -35,7 +35,7 @@ public class Conversation
     private readonly Assistant _assistant;
     private readonly CancellationToken _cancellationToken;
     private readonly Action<string>? _streamHandler;
-    private List<ContextData>? _contextProviders;
+    private List<ContextData>? _contextData;
     private JsonSchema? _responseSchema;
 
     public Conversation(
@@ -52,7 +52,7 @@ public class Conversation
         Action<Message>? onMessage = null,
         Action<string>? streamHandler = null,
         JsonSchema? finalResponseSchema = null,
-        List<ContextData>? contextProviders = null,
+        List<ContextData>? contextData = null,
         CancellationToken cancellationToken = default
     )
     {
@@ -74,7 +74,7 @@ public class Conversation
         _toolDefinitions = toolDefinitions;
         _streamHandler = streamHandler;
         _cancellationToken = cancellationToken;
-        _contextProviders = contextProviders;
+        _contextData = contextData;
         _responseSchema = finalResponseSchema;
     }
 
@@ -99,7 +99,7 @@ public class Conversation
             SystemPrompt = _systemPrompt,
             Options = _options,
             ToolDefinitions = _toolDefinitions,
-            ContextProviders = _contextProviders,
+            ContextData = _contextData,
             ResponseSchema = _responseSchema,
         };
 
