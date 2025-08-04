@@ -56,20 +56,33 @@ type AnthropicMessage =
         Role: string
     }
 
+type CacheControl =
+    {
+        Type: string
+    }
+    
 type AnthropicToolDefinition =
     {
         Name: string
         Description: string
         InputSchema: JsonValue
+        CacheControl: CacheControl option
     }
+    
+type SystemPromptBlock =
+   {
+       Type: string 
+       Text: string
+       CacheControl: CacheControl option
+   }
 
 type AnthropicRequest =
     {
         Model: string
-        Messages: AnthropicMessage list
         MaxTokens: int
-        SystemPrompt: string option
+        SystemPrompt: SystemPromptBlock list option
         Tools: AnthropicToolDefinition list option
+        Messages: AnthropicMessage list
         Stream: bool
     }
 
@@ -104,6 +117,34 @@ module UnknownBlock =
         Decode.object (fun get -> {
             Type = get.Required.Field "type" Decode.string
         })
+
+module CacheControl =
+    let decoder: Decoder<CacheControl> =
+        Decode.object (fun get -> {
+            Type = get.Required.Field "type" Decode.string
+        })
+
+    let encoder(cacheControl: CacheControl) =
+        Encode.object [
+            "type", Encode.string cacheControl.Type
+        ]
+        
+module SystemPromptBlock =
+    let decoder: Decoder<SystemPromptBlock> =
+        Decode.object (fun get -> {
+            Type = get.Required.Field "type" Decode.string
+            Text = get.Required.Field "text" Decode.string
+            CacheControl = get.Optional.Field "cache_control" (Decode.object (fun get -> {
+                Type = get.Required.Field "type" Decode.string
+            }))
+        })
+
+    let encoder(prompt: SystemPromptBlock) =
+        Encode.object [
+            "type", Encode.string prompt.Type
+            "text", Encode.string prompt.Text
+            "cache_control", Encode.option CacheControl.encoder prompt.CacheControl
+        ]
 
 module TextContentBlock =
     let decoder: Decoder<TextContentBlock> =
@@ -218,17 +259,20 @@ module AnthropicRequest =
         Decode.object (fun get ->
             {
                 Model = get.Required.Field "model" Decode.string
+                SystemPrompt = get.Optional.Field "system" (Decode.list SystemPromptBlock.decoder)
                 Messages = get.Required.Field "messages" (Decode.list (Decode.object (fun get -> {
                     Content = get.Required.Field "content" (Decode.list ContentBlock.decoder)
                     Role = get.Required.Field "role" Decode.string
                 })))
                 MaxTokens = get.Required.Field "max_tokens" Decode.int
-                SystemPrompt = get.Optional.Field "system" Decode.string
                 Stream = get.Required.Field "stream" Decode.bool
                 Tools = get.Optional.Field "tools" (Decode.list (Decode.object (fun get -> {
                     Description = get.Required.Field "description" Decode.string
                     Name = get.Required.Field "name" Decode.string
                     InputSchema = get.Required.Field "input_schema" Decode.value
+                    CacheControl = get.Optional.Field "cache_control" (Decode.object (fun get -> {
+                        Type = get.Required.Field "type" Decode.string
+                    }))
                 })))
             })
 
@@ -241,12 +285,19 @@ module AnthropicRequest =
             "content", message.Content |> List.map ContentBlock.encode |> Encode.list
             "role", Encode.string message.Role
         ]
+        
+    let systemPromptEncoder (prompt: SystemPromptBlock list option) =
+        match prompt with
+        | Some p -> p |> List.map SystemPromptBlock.encoder |> Encode.list
+        | None -> Encode.nil
 
     let toolEncoder (tool: AnthropicToolDefinition) =
         Encode.object [
             "description", Encode.string tool.Description
             "name", Encode.string tool.Name
             "input_schema", tool.InputSchema
+            if tool.CacheControl.IsSome then
+                "cache_control", Encode.option CacheControl.encoder tool.CacheControl             
         ]
     let optionalToolEncoder (tools: AnthropicToolDefinition list option) =
         let noToolsDefined = tools.Value.Length = 0
@@ -259,7 +310,7 @@ module AnthropicRequest =
             "model", Encode.string request.Model
             "messages", request.Messages |> List.map messageEncoder |> Encode.list
             "max_tokens", Encode.int request.MaxTokens
-            "system", Encode.option Encode.string request.SystemPrompt
+            "system", request.SystemPrompt |> systemPromptEncoder
             "stream", Encode.bool request.Stream
             if request.Tools.IsSome then
                 if request.Tools.Value.Length > 0 then

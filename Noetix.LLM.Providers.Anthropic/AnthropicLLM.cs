@@ -1,5 +1,6 @@
 using Codecs;
 using Microsoft.FSharp.Collections;
+using Microsoft.FSharp.Core;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NLog;
@@ -15,6 +16,7 @@ public class AnthropicLLM : LLMProvider
     private readonly HttpClient _httpClient;
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
     private const string DefaultSystemPrompt = "You are a helpful assistant. You are here to help me with my tasks.";
+    private const int DefaultMaxTokens = 8192;
 
     private RetryPolicy _retryPolicy = new RetryPolicy(
         maxAttempts: 4,
@@ -37,14 +39,17 @@ public class AnthropicLLM : LLMProvider
         public string ApiKey { get; set; }
     }
 
-    private async Task<HttpResponseMessage> SendRequestAsync(AnthropicRequest request, CancellationToken cancellationToken = default)
+    private async Task<HttpResponseMessage> SendRequestAsync(AnthropicRequest request,
+        CancellationToken cancellationToken = default)
     {
         var json = AnthropicRequestModule.encode(request).ToString();
         var content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
-        // _logger.Trace("Content: " + json);
+        _logger.Info("Content: " + json);
+
 
         _logger.Info($"Sending request to Anthropic API with model {request.Model}");
-        var response = await _httpClient.PostAsync("https://api.anthropic.com/v1/messages", content, cancellationToken: cancellationToken);
+        var response = await _httpClient.PostAsync("https://api.anthropic.com/v1/messages", content,
+            cancellationToken: cancellationToken);
         _logger.Info(
             $"Received response from Anthropic API with status {response.StatusCode} and content {await response.Content.ReadAsStringAsync()}");
 
@@ -92,43 +97,95 @@ public class AnthropicLLM : LLMProvider
         return new AnthropicMessage(role: message.Role, content: ListModule.OfSeq(contentBlocks));
     }
 
-    private string BuildSystemPrompt(CompletionRequest completionRequest)
+    private List<SystemPromptBlock> BuildSystemPrompt(CompletionRequest completionRequest)
     {
-        var result = completionRequest.SystemPrompt;
-
-        if (result.Length == 0)
+        var systemPrompt = completionRequest.SystemPrompt;
+        var promptBlocks = new List<SystemPromptBlock>();
+        if (systemPrompt.Length == 0)
         {
-            result = DefaultSystemPrompt;
+            systemPrompt = DefaultSystemPrompt;
         }
+
+        promptBlocks.Add(new SystemPromptBlock(type: "text", text: systemPrompt,
+            cacheControl: FSharpOption<CacheControl>.None));
 
         if (completionRequest.ContextData != null)
         {
             var contextBlocks = completionRequest.ContextData.Select(p => p.ToString()).ToList();
-            var contextText = string.Join("\n\n", contextBlocks);
-            
-            result += "Here is the context that is being provided: \n" + contextText;
+
+            if (contextBlocks.Count == 0)
+            {
+                _logger.Warn("No context data provided in the request");
+            }
+            else
+            {
+                _logger.Info($"Adding {contextBlocks.Count} context blocks to the system prompt");
+            }
+
+
+            var additionalSystemPromptBlocks = completionRequest.ContextData
+                .Select(p => new SystemPromptBlock(type: "text", text: p.ToString(),
+                    cacheControl: FSharpOption<CacheControl>.None))
+                .ToList();
+
+            promptBlocks.AddRange(additionalSystemPromptBlocks);
         }
-        return result;
+
+        if (promptBlocks.Count > 0)
+        {
+            var lastBlock = promptBlocks.Last();
+            promptBlocks.Remove(lastBlock);
+            // Because... Anthropic
+            promptBlocks.Add(new SystemPromptBlock(
+                type: lastBlock.Type,
+                text: lastBlock.Text,
+                cacheControl: new CacheControl(type: "ephemeral")
+            ));
+        }
+
+        return promptBlocks;
     }
-    
 
-    public async Task<CompletionResponse> Complete(CompletionRequest request, CancellationToken cancellationToken = default)
+
+    private List<AnthropicToolDefinition> BuildToolDefinitions(CompletionRequest request)
     {
-        var DefaultMaxTokens = 8192;
-
-        var anthropicMessages =
-            request.Messages.FindAll(m => m.Role != "system").Select(m => convertMessage(m)).ToList();
         var tools = request.ToolDefinitions?.Select(t => new AnthropicToolDefinition(
             name: t.Name,
             description: t.Description,
-            inputSchema: JsonConvert.DeserializeObject<JToken>(t.ParametersSchema.ToJson())
+            inputSchema: JsonConvert.DeserializeObject<JToken>(t.ParametersSchema.ToJson()),
+            cacheControl: FSharpOption<CacheControl>.None
+        )).ToList() ?? [];
+
+        var lastTool = tools?.LastOrDefault();
+        if (lastTool != null)
+        {
+            tools.Remove(lastTool);
+        }
+
+        // Because... Anthropic 
+        tools.Add(new AnthropicToolDefinition(
+            name: lastTool.Name,
+            description: lastTool.Description,
+            inputSchema: lastTool.InputSchema,
+            cacheControl: new CacheControl(type: "ephemeral")
         ));
+
+        return tools;
+    }
+
+    public async Task<CompletionResponse> Complete(CompletionRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var anthropicMessages =
+            request.Messages.FindAll(m => m.Role != "system").Select(m => convertMessage(m)).ToList();
+        var tools = BuildToolDefinitions(request);
+
         var anthropicRequest = new AnthropicRequest(
             model: request.Model,
             messages: ListModule.OfSeq(anthropicMessages),
             maxTokens: request.Options?.MaxTokens ?? DefaultMaxTokens,
-            systemPrompt: BuildSystemPrompt(request),
-            tools: ListModule.OfSeq(tools ?? new List<AnthropicToolDefinition>()),
+            systemPrompt: ListModule.OfSeq(BuildSystemPrompt(request)),
+            tools: ListModule.OfSeq(tools),
             stream: false);
 
         _logger.Info($"Completing messages with model {request.Model}");
@@ -170,17 +227,14 @@ public class AnthropicLLM : LLMProvider
         CancellationToken cancellationToken)
     {
         var anthropicMessages = request.Messages.Select(m => convertMessage(m)).ToList();
-        var tools = request.ToolDefinitions?.Select(t => new AnthropicToolDefinition(
-            name: t.Name,
-            description: t.Description,
-            inputSchema: JsonConvert.DeserializeObject<JToken>(t.ParametersSchema.ToJson())
-        ));
-        // var request = new AnthropicRequest { Model = options.Model, Messages = anthropicMessages, MaxTokens = 1024, Tools = null };
+        var tools = BuildToolDefinitions(request);
+
+
         var anthropicRequest = new AnthropicRequest(
             model: request.Model,
             messages: ListModule.OfSeq(anthropicMessages),
-            maxTokens: 1024,
-            systemPrompt: BuildSystemPrompt(request),
+            maxTokens: request.Options?.MaxTokens ?? DefaultMaxTokens,
+            systemPrompt: ListModule.OfSeq(BuildSystemPrompt(request)),
             tools: ListModule.OfSeq(tools ?? new List<AnthropicToolDefinition>()),
             stream: true);
 
@@ -196,9 +250,9 @@ public class AnthropicLLM : LLMProvider
             Content = content,
         };
 
-        ContentBlockStart? currentBlock = null; 
+        ContentBlockStart? currentBlock = null;
         var currentToolJsonString = "";
-        
+
         var blockHandler = (StreamBlock block) =>
         {
             switch (block)
@@ -216,6 +270,7 @@ public class AnthropicLLM : LLMProvider
                             _logger.Warn($"Unknown delta type {cbd.Item.Delta.GetType()}");
                             break;
                     }
+
                     break;
                 case StreamBlock.ContentBlockStart cb:
                     currentBlock = cb.Item;
@@ -227,9 +282,9 @@ public class AnthropicLLM : LLMProvider
                             var toolInputObject =
                                 JsonConvert.DeserializeObject<JObject>(currentToolJsonString)
                                 ?? new JObject();
-                            
+
                             currentToolJsonString = String.Empty;
-                           
+
                             handler.OnToolRequest(new ToolInvocationRequest
                             {
                                 Id = tub.Item.Id,
@@ -237,10 +292,11 @@ public class AnthropicLLM : LLMProvider
                                 Parameters = toolInputObject
                             });
                             break;
-                                
+
                         default:
                             break;
                     }
+
                     currentBlock = null;
                     break;
                 default:
@@ -268,6 +324,7 @@ public class AnthropicLLM : LLMProvider
                             handler.OnError(new OperationCanceledException("Operation was canceled"));
                             return false;
                         }
+
                         var readBuffer = new char[readSize];
                         var bytesRead = await reader.ReadAsync(readBuffer, 0, readSize);
                         if (bytesRead == 0)
@@ -283,7 +340,7 @@ public class AnthropicLLM : LLMProvider
                             bufferSize *= 2;
                             Array.Resize(ref buffer, bufferSize);
                         }
-                        
+
                         Array.Copy(readBuffer, 0, buffer, offset - bytesRead, bytesRead);
 
                         var line = new string(buffer, 0, offset);
@@ -320,7 +377,8 @@ public class AnthropicLLM : LLMProvider
         }
     }
 
-    public async Task<CompletionResponse> Generate(CompletionRequest request, CancellationToken cancellationToken = default)
+    public async Task<CompletionResponse> Generate(CompletionRequest request,
+        CancellationToken cancellationToken = default)
     {
         if (request.Messages.Count == 0)
         {
