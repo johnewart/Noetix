@@ -106,6 +106,17 @@ public class AnthropicLLM : LLMProvider
             systemPrompt = DefaultSystemPrompt;
         }
 
+        if (completionRequest.ResponseSchema != null)
+        {
+            systemPrompt += $"""
+                             Make sure your final response conforms to the following schema:
+                             
+                             <response_schema> 
+                             {completionRequest.ResponseSchema.ToJson()}
+                             </response_schema>
+                             """;
+        }
+
         promptBlocks.Add(new SystemPromptBlock(type: "text", text: systemPrompt,
             cacheControl: FSharpOption<CacheControl>.None));
 
@@ -124,7 +135,7 @@ public class AnthropicLLM : LLMProvider
 
 
             var additionalSystemPromptBlocks = completionRequest.ContextData
-                .Select(p => new SystemPromptBlock(type: "text", text: p.ToString(),
+                .Select(p => new SystemPromptBlock(type: "text", text: p.ToXmlLikeBlock(),
                     cacheControl: FSharpOption<CacheControl>.None))
                 .ToList();
 

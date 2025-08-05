@@ -260,10 +260,6 @@ module AnthropicRequest =
             {
                 Model = get.Required.Field "model" Decode.string
                 SystemPrompt = get.Optional.Field "system" (Decode.list SystemPromptBlock.decoder)
-                Messages = get.Required.Field "messages" (Decode.list (Decode.object (fun get -> {
-                    Content = get.Required.Field "content" (Decode.list ContentBlock.decoder)
-                    Role = get.Required.Field "role" Decode.string
-                })))
                 MaxTokens = get.Required.Field "max_tokens" Decode.int
                 Stream = get.Required.Field "stream" Decode.bool
                 Tools = get.Optional.Field "tools" (Decode.list (Decode.object (fun get -> {
@@ -274,6 +270,11 @@ module AnthropicRequest =
                         Type = get.Required.Field "type" Decode.string
                     }))
                 })))
+                Messages = get.Required.Field "messages" (Decode.list (Decode.object (fun get -> {
+                    Content = get.Required.Field "content" (Decode.list ContentBlock.decoder)
+                    Role = get.Required.Field "role" Decode.string
+                })))
+               
             })
 
     let decode json =
@@ -308,14 +309,16 @@ module AnthropicRequest =
     let encode (request: AnthropicRequest  )=
         Encode.object [
             "model", Encode.string request.Model
-            "messages", request.Messages |> List.map messageEncoder |> Encode.list
             "max_tokens", Encode.int request.MaxTokens
-            "system", request.SystemPrompt |> systemPromptEncoder
             "stream", Encode.bool request.Stream
+            "system", request.SystemPrompt |> systemPromptEncoder
             if request.Tools.IsSome then
                 if request.Tools.Value.Length > 0 then
                     "tools", request.Tools |> optionalToolEncoder
-
+            
+            "messages", request.Messages |> List.map messageEncoder |> Encode.list
+           
+           
         ]
 
 

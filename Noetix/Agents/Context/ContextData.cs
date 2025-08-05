@@ -12,6 +12,11 @@ public abstract class ContextData
     
     public JsonSchema Schema => JsonSchema.FromSampleJson(JsonConvert.SerializeObject(Context));
 
+    public string ToJson()
+    {
+        return JsonConvert.SerializeObject(this, Formatting.Indented);
+    }
+    
     public string ToXmlLikeBlock()
     {
         return $@"

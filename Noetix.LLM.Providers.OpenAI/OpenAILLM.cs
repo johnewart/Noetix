@@ -53,9 +53,9 @@ public class OpenAILLM : LLMProvider
         var contextData = request.ContextData?.Select(p => p.ToXmlLikeBlock()).ToList() ?? [];
         prompt += $"\n\n<CONTEXT>\n{contextData.Join("\n\n")}\n</CONTEXT>";
 
-        // prompt += request.ResponseSchema != null
-        //     ? $"\n\n<RESPONSE_FORMAT>\n{request.GenericResponseSchemaPreamble}\n</RESPONSE_FORMAT>\n"
-        //     : "";
+        prompt += request.ResponseSchema != null
+            ? $"\n\n<RESPONSE_FORMAT>\n{request.GenericResponseSchemaPreamble}\n</RESPONSE_FORMAT>\n"
+            : "";
         return prompt;
     }
     
@@ -68,17 +68,21 @@ public class OpenAILLM : LLMProvider
             messages.AddRange(request.Messages.Select(ConvertMessage).ToList());
             
             var chat = client.GetChatClient(request.Model);
-            var options = new ChatCompletionOptions()
-            {
-                ResponseFormat = request.ResponseSchema != null
-                    ? ChatResponseFormat.CreateJsonSchemaFormat("json_schema",
-                        BinaryData.FromString(request.ResponseSchema.ToJson()))
-                    : ChatResponseFormat.CreateTextFormat()
-            };
+            // var options = new ChatCompletionOptions()
+            // {
+            //     ResponseFormat = request.ResponseSchema != null
+            //         ? ChatResponseFormat.CreateJsonSchemaFormat("json_schema",
+            //             BinaryData.FromString(request.ResponseSchema.ToJson()))
+            //         : ChatResponseFormat.CreateTextFormat()
+            // };
             
             // options.ResponseFormat = ChatResponseFormat.CreateTextFormat();
-          
-            var response = (await chat.CompleteChatAsync(messages: messages, options: options, cancellationToken: cancellationToken))
+            // var options = new ChatCompletionOptions()
+            // {
+            //     ResponseFormat = ChatResponseFormat.CreateTextFormat()
+            // };
+            
+            var response = (await chat.CompleteChatAsync(messages: messages, options: null, cancellationToken: cancellationToken))
                 .Value;
             if (response.Content == null)
             {
@@ -101,7 +105,8 @@ public class OpenAILLM : LLMProvider
 
     public async Task<bool> StreamComplete(CompletionRequest request, IStreamingResponseHandler handler, CancellationToken cancellationToken)
     {
-        var messages = new List<ChatMessage>(){ new SystemChatMessage(request.SystemPrompt) };
+        var systemPrompt = GenerateSystemPrompt(request);
+        var messages = new List<ChatMessage>(){ new SystemChatMessage(systemPrompt) };
         messages.AddRange(request.Messages.Select(ConvertMessage).ToList());
         
         _logger.Info("Streaming completion for {model}", request.Model);

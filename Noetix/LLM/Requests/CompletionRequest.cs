@@ -25,15 +25,15 @@ public record CompletionRequest
                 List<string> lines =
                 [
                     "There is a *very* strict format for your response - you MUST respond using JSON.",
-                    "Your response should start with <response> and end with </response> and include ONLY the results of the task you were asked to do.",
+                    "Your final response must be a valid JSON object that matches the schema provided, and include nothing else.",
                     "The schema for the response is included in the <response_schema></response_schema> tags below.",
                     "<response_schema>",
                     ResponseSchema.ToJson(),
                     "</response_schema>",
-                    "Make absolutely sure that the response is in the correct format.",
-                    "You are given the schema, return a valid JSON response that matches the schema - do NOT return a schema.",
-                    "Remember: JSON is a strict format, and the response must be valid JSON to be accepted.",
-                    "Do not add or remove any content from the response, and make sure that the response is in the correct format before submitting.",
+                    // "Make absolutely sure that the response is in the correct format.",
+                    // "You are given the schema, return a valid JSON response that matches the schema - do NOT return a schema.",
+                    // "Remember: JSON is a strict format, and the response must be valid JSON to be accepted.",
+                    // "Do not add or remove any content from the response, and make sure that the response is in the correct format before submitting.",
                 ];
 
                 return string.Join("\n", lines);

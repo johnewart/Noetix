@@ -17,7 +17,7 @@ public interface IAssistantTask
 public abstract class TaskContextData<O> : ContextData
 {
     public override string Name => "Task Context";
-    public override string Description => "Context relevant to the task you are being asked to do - including response format, examples, and detailed instructions on how to complete the task.";
+    public override string Description => "Context relevant to the task you are being asked to do - examples, and detailed instructions on how to complete the task.";
     public abstract string TaskName { get; }
     public abstract string TaskSpecifics { get; }
     public abstract List<string> Instructions { get; }

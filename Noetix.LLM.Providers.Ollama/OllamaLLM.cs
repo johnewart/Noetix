@@ -28,11 +28,40 @@ public class OllamaLLM(OllamaConfig config) : LLMProvider
 
     private string GenerateContextBlock(List<ContextData> providers)
     {
-        var blocks = providers.Select(p => p.ToString()).ToList();
-        return string.Join("\n\n", blocks);
+        var blocks = providers.Select(p => $"\n<context>\n{p.ToXmlLikeBlock()}\n</context>\n").ToList();
+        return string.Join("\n", blocks);
+    }
+
+
+    public string BuildSystemPrompt(CompletionRequest request)
+    {
+        var systemPrompt = request.SystemPrompt;
+
+        if (request.ResponseSchema != null)
+        {
+            systemPrompt += $"""
+                             Your final response MUST conform to the following JSON schema or it will be rejected:
+
+                             <response_schema>
+                             {JsonConvert.SerializeObject(request.ResponseSchema, Formatting.Indented)}
+                             </response_schema>
+                             """;
+        }
+        
+        var contextPromptData = GenerateContextBlock(providers: request.ContextData ?? []);
+
+        if (!string.IsNullOrWhiteSpace(contextPromptData))
+        {
+            systemPrompt += $"""
+                             <prompt_contexts>
+                             {contextPromptData}
+                             </prompt_contexts>
+                             """;
+        }
+
+        return systemPrompt;
     }
     
-
     public async Task<CompletionResponse> Complete(CompletionRequest request, CancellationToken cancellationToken = default)
     {
         var requestTools = request.ToolDefinitions?.Select(t => new OllamaTool()
@@ -48,14 +77,10 @@ public class OllamaLLM(OllamaConfig config) : LLMProvider
             
         var chatMessages = request.Messages.Select(ConvertMessage).ToList();
         
-        if (!request.SystemPrompt.IsNullOrEmpty())
-        {
-            var systemPrompt = request.SystemPrompt;
-            var contextPromptData = GenerateContextBlock(providers: request.ContextData ?? []);
+        var systemPrompt = BuildSystemPrompt(request);
             
-            chatMessages.Insert(0, new ChatMessage { Role = "system", Content = systemPrompt + "\n\n" + contextPromptData });
-        }
-            
+        chatMessages.Insert(0, new ChatMessage { Role = "system", Content = systemPrompt });
+        
         var response = await _client.Chat(request.Model, chatMessages, tools: requestTools);
         if (response == null)
         {
@@ -87,7 +112,8 @@ public class OllamaLLM(OllamaConfig config) : LLMProvider
     public async Task<bool> StreamComplete(CompletionRequest request,
         IStreamingResponseHandler handler, CancellationToken cancellationToken)
     {
-        var messages = new List<ChatMessage>() { ConvertMessage(new SystemMessage(request.SystemPrompt)) };
+        var systemPrompt = BuildSystemPrompt(request);
+        var messages = new List<ChatMessage>() { ConvertMessage(new SystemMessage(systemPrompt)) };
         messages.AddRange(request.Messages.Select(ConvertMessage));
         
         await _client.StreamChat(
