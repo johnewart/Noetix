@@ -18,6 +18,8 @@ public class SharpVector : IDocumentSearchEngine
             RetrieveMetadata = (chunk) =>
             {
                 var metadata = document.Metadata;
+                // prune any null values
+                metadata = metadata.Where(kv => kv.Key != null && kv.Value != null).ToDictionary(kv => kv.Key, kv => kv.Value!);
                 metadata["Id"] = document.Id;
                 metadata["Name"] = document.Name;
                 metadata["chunkSize"] = chunk.Length.ToString();
