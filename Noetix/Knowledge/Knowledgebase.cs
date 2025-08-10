@@ -10,12 +10,27 @@ public class Knowledgebase(
 {
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
     
+
+    public Task ReindexSearchEngine()
+    {
+        _logger.Info("Reindexing knowledgebase");
+       foreach(var document in documentStore.Documents())
+        {
+            _logger.Info($"Reindexing document: {document.Id}");
+            searchEngine.Index(document);
+        }
+        _logger.Info("Reindexing complete");
+        return Task.CompletedTask;
+    }
+    
     public Task<IEnumerable<Document>> Search(string query, int limit = 5)
     {
         _logger.Info($"Searching for documents with query: {query}");
         return searchEngine.Search(query, limit);
     }
 
+   
+    
     public async Task Rebuild(List<IDocumentSource> sources)
     {
         _logger.Info("Rebuilding knowledgebase");

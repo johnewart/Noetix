@@ -110,7 +110,7 @@ public class AnthropicLLM : LLMProvider
         {
             systemPrompt += $"""
                              Make sure your final response conforms to the following schema:
-                             
+
                              <response_schema> 
                              {completionRequest.ResponseSchema.ToJson()}
                              </response_schema>
@@ -167,19 +167,22 @@ public class AnthropicLLM : LLMProvider
             cacheControl: FSharpOption<CacheControl>.None
         )).ToList() ?? [];
 
-        var lastTool = tools?.LastOrDefault();
+
+        var lastTool = tools.LastOrDefault();
         if (lastTool != null)
         {
             tools.Remove(lastTool);
+
+
+            // Because... Anthropic 
+            tools.Add(new AnthropicToolDefinition(
+                name: lastTool.Name,
+                description: lastTool.Description,
+                inputSchema: lastTool.InputSchema,
+                cacheControl: new CacheControl(type: "ephemeral")
+            ));
         }
 
-        // Because... Anthropic 
-        tools.Add(new AnthropicToolDefinition(
-            name: lastTool.Name,
-            description: lastTool.Description,
-            inputSchema: lastTool.InputSchema,
-            cacheControl: new CacheControl(type: "ephemeral")
-        ));
 
         return tools;
     }
