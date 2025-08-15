@@ -61,20 +61,30 @@ public class AnthropicLLM : LLMProvider
     private AnthropicMessage convertMessage(Message message)
     {
         var contentBlocks = new List<ContentBlock>();
-
-        if (message.ToolResults != null)
+        
+        // Where there are tool results, we add them as ToolResultBlocks and don't add the text content.
+        // This is because Anthropic expects tool results to be in a specific format.
+        var messageHasToolResults = message.ToolResults != null && message.ToolResults.Count > 0;
+        var messageHasContent = !string.IsNullOrEmpty(message.Content);
+        
+        if (messageHasToolResults)
         {
             foreach (var toolResult in message.ToolResults)
             {
                 contentBlocks.Add(ContentBlock.NewTRB(new ToolResultBlock(toolUseId: toolResult.Id,
                     content: toolResult.Result)));
             }
-        }
+        } 
 
-        // Only add text if there's no tool results in this message
-        if (message.Content != "" && message.ToolResults == null || message.ToolResults?.Count == 0)
+        // Only add text if there are no tool results in this message
+            
+        if (messageHasContent)
         {
             contentBlocks.Add(ContentBlock.NewTCB(new TextContentBlock(message.Content)));
+        }
+        else
+        {
+            contentBlocks.Add(ContentBlock.NewTCB(new TextContentBlock("No text content in this message.")));
         }
 
         if (message.ToolRequests != null)

@@ -9,4 +9,6 @@ public interface IDocumentStore : IDocumentSource
     void AddAll(IEnumerable<Document> documents);
     Task Reinitialize();
     int Size();
+    void RemoveById(string documentId);
+    Document? GetById(string documentId);
 }

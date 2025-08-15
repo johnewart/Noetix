@@ -46,6 +46,45 @@ public class FileDocumentStore : IDocumentStore
         return Directory.EnumerateFiles(_storagePath, "*.json").Count();
     }
 
+    public void RemoveById(string documentId)
+    {
+        // This is expensive, we should ideally keep a mapping of IDs to file paths 
+        // to avoid scanning the directory. 
+        var files = Directory.EnumerateFiles(_storagePath, "*.json");
+
+        foreach (var file in files)
+        {
+            var json = File.ReadAllText(file);
+            var document = JsonSerializer.Deserialize<Document>(json);
+            if (document != null && document.Id == documentId)
+            {
+                File.Delete(file);
+                return; // Exit after deleting the first matching document
+            }
+        }
+
+        // If we reach here, no document with the specified ID was found.
+        throw new KeyNotFoundException($"Document with ID {documentId} not found.");
+    }
+
+    public Document? GetById(string documentId)
+    {
+        var files = Directory.EnumerateFiles(_storagePath, "*.json");
+
+        foreach (var file in files)
+        {
+            var json = File.ReadAllText(file);
+            var document = JsonSerializer.Deserialize<Document>(json);
+            if (document != null && document.Id == documentId)
+            {
+                return document; // Return the first matching documentment
+            }
+        }
+        
+        // If we reach here, no document with the specified ID was found.
+        return null;
+    }
+
     public IEnumerable<Document> Documents()
     {
         var documents = new List<Document>();
