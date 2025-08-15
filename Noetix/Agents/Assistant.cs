@@ -113,7 +113,8 @@ public class Assistant(
         int maxDepth = 10, 
         Action<Message>? onMessageCallback = null,
         Action<string>? streamHandler = null,
-        CancellationToken cancellationToken = default
+        CancellationToken cancellationToken = default,
+        List<ContextData>? contextData = null
     )
     {
         UpdateStatus(AssistantStatusKind.Chat, AssistantStatusState.Started, "Generating response....", "Generating response....");
@@ -141,7 +142,8 @@ public class Assistant(
             llmOptions,
             onMessage,
             streamHandler: streamHandler, 
-            cancellationToken: cancellationToken); 
+            cancellationToken: cancellationToken,
+            contextData: contextData); 
 
             
         var result = await conversation.Send(prompt);
