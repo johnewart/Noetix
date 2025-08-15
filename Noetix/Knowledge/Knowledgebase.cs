@@ -10,22 +10,21 @@ public class Knowledgebase(
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
     
 
-    public Task ReindexSearchEngine()
+    public async Task ReindexSearchEngine()
     {
         _logger.Info("Reindexing knowledgebase");
        foreach(var document in documentStore.Documents())
         {
             _logger.Info($"Reindexing document: {document.Id}");
-            searchEngine.Index(document);
+            await searchEngine.Index(document);
         }
         _logger.Info("Reindexing complete");
-        return Task.CompletedTask;
     }
     
-    public Task<IEnumerable<Document>> Search(string query, int limit = 5)
+    public async Task<IEnumerable<Document>> Search(string query, int limit = 5)
     {
         _logger.Info($"Searching for documents with query: {query}");
-        return searchEngine.Search(query, limit);
+        return await searchEngine.Search(query, limit);
     }
 
    
@@ -127,5 +126,10 @@ public class Knowledgebase(
             _logger.Error(ex, "Failed to sync knowledgebase to disk");
             throw;
         }
+    }
+
+    public async Task StoreAsync(List<Document> documents)
+    {
+        
     }
 }
