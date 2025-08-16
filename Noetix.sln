@@ -26,6 +26,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Noetix.LLM.Providers.Google
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DotnetGeminiSDK", "vendor\DotnetGeminiSDK\DotnetGeminiSDK.csproj", "{140C1665-D48D-4559-8718-604A47AA362D}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Noetix.Knowledge.Sharpvector", "Noetix.Knowledge.SharpVector\Noetix.Knowledge.Sharpvector.csproj", "{A9BE9A94-FD8E-4450-A62F-5E9B69F48C15}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Noetix.Knowledge.ZoneTree", "Noetix.Knowledge.ZoneTree\Noetix.Knowledge.ZoneTree.csproj", "{13935C69-DFF2-43E3-B31A-76691625584D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -72,6 +76,14 @@ Global
 		{140C1665-D48D-4559-8718-604A47AA362D}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{140C1665-D48D-4559-8718-604A47AA362D}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{140C1665-D48D-4559-8718-604A47AA362D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A9BE9A94-FD8E-4450-A62F-5E9B69F48C15}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A9BE9A94-FD8E-4450-A62F-5E9B69F48C15}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A9BE9A94-FD8E-4450-A62F-5E9B69F48C15}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A9BE9A94-FD8E-4450-A62F-5E9B69F48C15}.Release|Any CPU.Build.0 = Release|Any CPU
+		{13935C69-DFF2-43E3-B31A-76691625584D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{13935C69-DFF2-43E3-B31A-76691625584D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{13935C69-DFF2-43E3-B31A-76691625584D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{13935C69-DFF2-43E3-B31A-76691625584D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{A0FED215-A73A-4145-AD4F-9751B178EF1C} = {713FA794-7964-48D5-918D-58484C3CAAE9}

@@ -67,6 +67,13 @@ public class SharpVectorKnowledgebaseSearchEngine : IDocumentSearchEngine
         }
     }
 
+    public void ResetIndex()
+    {
+        throw new NotImplementedException();
+    }
+
+    public bool IsInitialized { get; } = true;
+
 
     public async Task Index(Document document)
     {
@@ -195,5 +202,10 @@ public class SharpVectorKnowledgebaseSearchEngine : IDocumentSearchEngine
     public async Task<bool> TableExists()
     {
         return true;
+    }
+
+    public void Dispose()
+    {
+        _vectorDatabaseMutex.Dispose();
     }
 }

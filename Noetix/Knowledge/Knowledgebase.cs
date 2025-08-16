@@ -8,30 +8,58 @@ public class Knowledgebase(
     IDocumentSearchEngine searchEngine)
 {
     private readonly Logger _logger = LogManager.GetCurrentClassLogger();
-    
+    private IDocumentSearchEngine _searchEngine = searchEngine;
 
     public async Task ReindexSearchEngine()
     {
         _logger.Info("Reindexing knowledgebase");
-       foreach(var document in documentStore.Documents())
+        _searchEngine.ResetIndex();
+        
+        foreach (var document in documentStore.Documents())
         {
             _logger.Info($"Reindexing document: {document.Id}");
-            await searchEngine.Index(document);
+            await _searchEngine.Index(document);
         }
+
         _logger.Info("Reindexing complete");
     }
-    
+
+    public async Task SwitchSearchEngine(IDocumentSearchEngine newSearchEngine)
+    {
+        _logger.Info("Switching search engine");
+        
+        _logger.Info("Disposing of old search engine");
+        _searchEngine.Dispose();
+        
+        Thread.Sleep(500); // Give some time for the old search engine to dispose properly
+        
+        _searchEngine = newSearchEngine;
+        if (!newSearchEngine.IsInitialized)
+        {
+            _logger.Info("New search engine is not initialized, reindexing documents");
+            foreach (var document in documentStore.Documents())
+            {
+                _logger.Info($"Reindexing document: {document.Id}");
+                await _searchEngine.Index(document);
+            }
+        }
+        else
+        {
+            _logger.Info("New search engine is already initialized, no need to reindex");
+        }
+    }
+
     public async Task<IEnumerable<Document>> Search(string query, int limit = 5)
     {
         _logger.Info($"Searching for documents with query: {query}");
-        return await searchEngine.Search(query, limit);
+        return await _searchEngine.Search(query, limit);
     }
 
-   
-    
+
     public async Task Rebuild(List<IDocumentSource> sources, int? chunkSize = 1024)
     {
-        _logger.Info("Rebuilding knowledgebase from  {sources.Count} sources with chunk size: {chunkSize}", sources.Count, chunkSize);
+        _logger.Info("Rebuilding knowledgebase from  {sources.Count} sources with chunk size: {chunkSize}",
+            sources.Count, chunkSize);
         await documentStore.Reinitialize();
         _logger.Info("Reinitialized document store, will re-add all documents");
         foreach (var source in sources)
@@ -55,14 +83,14 @@ public class Knowledgebase(
                 chunkList.Each(chunk =>
                 {
                     documentStore.Add(chunk);
-                    searchEngine.Index(chunk);
+                    _searchEngine.Index(chunk);
                     chunksInserted++;
                 });
             }
             else
             {
                 documentStore.Add(doc);
-                searchEngine.Index(doc);
+                _searchEngine.Index(doc);
             }
 
             docsInserted++;
@@ -77,14 +105,15 @@ public class Knowledgebase(
         kbDocs.Each(doc =>
         {
             documentStore.Add(doc);
-            searchEngine.Index(doc);
+            _searchEngine.Index(doc);
         });
     }
 
     public async Task<IEnumerable<RankedResult>> RankedSearch(string query, int limit, double? threshold = null)
     {
-        _logger.Info($"Performing ranked-search for documents with query: {query} and limit: {limit} with threshold: {threshold}");
-        return await searchEngine.RankedSearch(query, limit, (float?)threshold);
+        _logger.Info(
+            $"Performing ranked-search for documents with query: {query} and limit: {limit} with threshold: {threshold}");
+        return await _searchEngine.RankedSearch(query, limit, (float?)threshold);
     }
 
     public int Size()
@@ -106,7 +135,7 @@ public class Knowledgebase(
             documentStore.RemoveById(documentId);
             // Remove from search engine, if applicable - this may be a noop if the search engine
             // is built into the document store, is not tracking documents, or if it handles removals automatically
-            searchEngine.RemoveDocumentFromIndex(documentId);
+            _searchEngine.RemoveDocumentFromIndex(documentId);
             _logger.Info($"Document with ID: {documentId} removed successfully");
         }
         else
@@ -120,8 +149,9 @@ public class Knowledgebase(
         _logger.Info("Syncing knowledgebase to disk");
         try
         {
-            searchEngine.WriteToDisk();
-        } catch (Exception ex)
+            _searchEngine.WriteToDisk();
+        }
+        catch (Exception ex)
         {
             _logger.Error(ex, "Failed to sync knowledgebase to disk");
             throw;
@@ -130,6 +160,5 @@ public class Knowledgebase(
 
     public async Task StoreAsync(List<Document> documents)
     {
-        
     }
 }
